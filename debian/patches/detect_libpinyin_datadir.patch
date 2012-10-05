@@ -1,0 +1,67 @@
+From cbef61619838758394a80a23fef064c73453fe4a Mon Sep 17 00:00:00 2001
+From: Peng Wu <alexepico@gmail.com>
+Date: Mon, 8 Oct 2012 13:46:05 +0800
+Subject: [PATCH] detect libpinyin datadir
+
+---
+ configure.ac       |    4 ++++
+ src/Makefile.am    |    5 ++++-
+ src/PYLibPinyin.cc |    4 ++--
+ 3 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/configure.ac b/configure.ac
+index 6599d11..969d2f7 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -68,6 +68,10 @@ PKG_CHECK_MODULES(LIBPINYIN, [
+ 
+ AM_CONDITIONAL(IBUS_BUILD_LIBPINYIN, [test x"$enable_libpinyin" = x"yes"])
+ 
++LIBPINYIN_DATADIR=`$PKG_CONFIG --variable=pkgdatadir libpinyin`
++
++AC_SUBST(LIBPINYIN_DATADIR)
++
+ # check uuid
+ AC_CHECK_FUNCS([uuid_create], [], [
+     PKG_CHECK_MODULES(LIBUUID, uuid, [
+diff --git a/src/Makefile.am b/src/Makefile.am
+index 2ea0fe6..fe986fc 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -159,7 +159,10 @@ ibus_engine_libpinyin_LDADD += $(LIBUUID_LIBS)
+ endif
+ 
+ if IBUS_BUILD_LIBPINYIN
+-   ibus_engine_libpinyin_CXXFLAGS += -DIBUS_BUILD_LIBPINYIN
++   ibus_engine_libpinyin_CXXFLAGS += \
++	-DIBUS_BUILD_LIBPINYIN \
++	-DLIBPINYIN_DATADIR=\"@LIBPINYIN_DATADIR@\/data\" \
++	$(NULL)
+ endif
+ 
+ if IBUS_BUILD_LUA_EXTENSION
+diff --git a/src/PYLibPinyin.cc b/src/PYLibPinyin.cc
+index eb2b937..f1854ba 100644
+--- a/src/PYLibPinyin.cc
++++ b/src/PYLibPinyin.cc
+@@ -64,7 +64,7 @@
+     if (retval) {
+         g_free(userdir); userdir = NULL;
+     }
+-    context = pinyin_init ("/usr/share/libpinyin/data", userdir);
++    context = pinyin_init (LIBPINYIN_DATADIR, userdir);
+     g_free (userdir);
+ 
+     const char *dicts = config->dictionaries ().c_str ();
+@@ -110,7 +110,7 @@
+     if (retval) {
+         g_free(userdir); userdir = NULL;
+     }
+-    context = pinyin_init ("/usr/share/libpinyin/data", userdir);
++    context = pinyin_init (LIBPINYIN_DATADIR, userdir);
+     g_free(userdir);
+ 
+     const char *dicts = config->dictionaries ().c_str ();
+-- 
+1.7.10
+

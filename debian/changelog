@@ -1,0 +1,5 @@
+ibus-libpinyin (1.4.92-1) experimental; urgency=low
+
+  * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+
+ -- Asias He <asias@debian.org>  Sun, 07 Oct 2012 13:47:16 +0800

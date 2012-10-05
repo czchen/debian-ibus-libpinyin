@@ -1,0 +1,18 @@
+Source: ibus-libpinyin
+Section: utils
+Priority: optional
+Maintainer: IME Packaging Team <pkg-ime-devel@lists.alioth.debian.org>
+Uploaders: Asias He <asias@debian.org>
+Build-Depends: debhelper (>= 8.0.0), autotools-dev, python-support (>= 0.90), hardening-wrapper, libpinyin2-dev (>= 0.7.91),
+ libibus-1.0-dev (>= 1.4.99.20120917), gettext, intltool, libtool, sqlite3, libsqlite3-dev, uuid-dev
+Standards-Version: 3.9.3
+Homepage: https://github.com/libpinyin/ibus-libpinyin
+Vcs-Git: git://git.debian.org/pkg-ime/ibus-libpinyin.git
+Vcs-Browser: http://git.debian.org/?p=pkg-ime/ibus-libpinyin.git
+
+Package: ibus-libpinyin
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Intelligent Pinyin engine based on libpinyin for IBus
+ It includes a Chinese Pinyin input method and a Chinese ZhuYin (Bopomofo)
+ input method based on libpinyin for IBus.
