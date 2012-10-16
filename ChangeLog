@@ -1,3 +1,29 @@
+commit 1b6227451d5f7bdc5e8362eb4a77e941dbd83ef5
+Author: Peng Wu <alexepico@gmail.com>
+Date:   2012-10-15 10:25:42 +0800
+
+    bump version 1.4.93
+
+M	configure.ac
+
+commit bd326aaa08a7af7917364e4acc63a6430e24b955
+Author: Peng Wu <alexepico@gmail.com>
+Date:   2012-10-09 11:35:24 +0800
+
+    fixes bopomofo icon
+
+M	src/libpinyin.xml.in.in
+
+commit cbef61619838758394a80a23fef064c73453fe4a
+Author: Peng Wu <alexepico@gmail.com>
+Date:   2012-10-08 13:46:05 +0800
+
+    detect libpinyin datadir
+
+M	configure.ac
+M	src/Makefile.am
+M	src/PYLibPinyin.cc
+
 commit 05a4b696ecf2267e766f918c123756ff98e45df3
 Author: Peng Wu <alexepico@gmail.com>
 Date:   2012-09-17 13:16:32 +0800
