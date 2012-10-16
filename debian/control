@@ -12,7 +12,7 @@ Vcs-Browser: http://git.debian.org/?p=pkg-ime/ibus-libpinyin.git
 
 Package: ibus-libpinyin
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}
 Description: Intelligent Pinyin engine based on libpinyin for IBus
  It includes a Chinese Pinyin input method and a Chinese ZhuYin (Bopomofo)
  input method based on libpinyin for IBus.
