@@ -23,8 +23,26 @@ import gettext
 from gi.repository import GObject
 from gi.repository import Gtk
 
-_ = lambda x : gettext.gettext(x)
+gettext.install('ibus-libpinyin')
 
+(
+    RESERVED,
+    GB_DICTIONARY,
+    GBK_DICTIONARY,
+    MERGED_DICTIONARY,
+    ART_DICTIONARY,
+    CULTURE_DICTIONARY,
+    ECONOMY_DICTIONARY,
+    GEOLOGY_DICTIONARY,
+    HISTORY_DICTIONARY,
+    LIFE_DICTIONARY,
+    NATURE_DICTIONARY,
+    SCITECH_DICTIONARY,
+    SOCIETY_DICTIONARY,
+    SPORT_DICTIONARY,
+    RESERVED1,
+    USER_DICTIONARY
+) = range(16)
 
 (
 COLUMN_SENSITIVE,
@@ -34,8 +52,19 @@ COLUMN_ACTIVE
 ) = range(4)
 
 dictionaries = \
-    ((False, 1, _("GB Dictionary"), True),
-     (True,  2, _("GBK Dictionary"), True))
+    (
+    (True, GBK_DICTIONARY, _("Low Frequent Characters"), True),
+    (True, ART_DICTIONARY, _("Art"), True),
+    (True, CULTURE_DICTIONARY, _("Culture"), True),
+    (True, ECONOMY_DICTIONARY, _("Economy"), True),
+    (True, GEOLOGY_DICTIONARY, _("Geology"), True),
+    (True, HISTORY_DICTIONARY, _("History"), True),
+    (True, LIFE_DICTIONARY, _("Life"), True),
+    (True, NATURE_DICTIONARY, _("Nature"), True),
+    (True, SCITECH_DICTIONARY, _("SciTech"), True),
+    (True, SOCIETY_DICTIONARY, _("Society"), True),
+    (True, SPORT_DICTIONARY, _("Sport"), True)
+    )
 
 
 class DictionaryTreeView(Gtk.TreeView):
@@ -81,12 +110,12 @@ class DictionaryTreeView(Gtk.TreeView):
         # column for toggles
         renderer = Gtk.CellRendererToggle()
         renderer.connect('toggled', self.__active_toggled, self.__model)
-        column = Gtk.TreeViewColumn('Active', renderer, active=COLUMN_ACTIVE, sensitive=COLUMN_SENSITIVE)
+        column = Gtk.TreeViewColumn(_('Active'), renderer, active=COLUMN_ACTIVE, sensitive=COLUMN_SENSITIVE)
         self.append_column(column)
 
         # column for description
         render = Gtk.CellRendererText()
-        column = Gtk.TreeViewColumn('Description', render, text=COLUMN_DESCRIPTION)
+        column = Gtk.TreeViewColumn(_('Description'), render, text=COLUMN_DESCRIPTION)
         self.append_column(column)
 
     def __active_toggled(self, cell, path, model):

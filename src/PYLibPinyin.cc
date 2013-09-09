@@ -20,6 +20,8 @@
  */
 
 #include "PYLibPinyin.h"
+
+#include <string.h>
 #include <pinyin.h>
 #include "PYPConfig.h"
 
@@ -58,7 +60,7 @@ LibPinyinBackEnd::initPinyinContext (Config *config)
 {
     pinyin_context_t * context = NULL;
 
-    gchar * userdir = g_build_filename (g_get_home_dir(), ".cache",
+    gchar * userdir = g_build_filename (g_get_user_cache_dir (),
                                         "ibus", "libpinyin", NULL);
     int retval = g_mkdir_with_parents (userdir, 0700);
     if (retval) {
@@ -68,7 +70,7 @@ LibPinyinBackEnd::initPinyinContext (Config *config)
     g_free (userdir);
 
     const char *dicts = config->dictionaries ().c_str ();
-    gchar ** indices = g_strsplit_set (dicts, "", -1);
+    gchar ** indices = g_strsplit_set (dicts, ";", -1);
     for (size_t i = 0; i < g_strv_length(indices); ++i) {
         int index = atoi (indices [i]);
         if (index <= 1)
@@ -77,6 +79,9 @@ LibPinyinBackEnd::initPinyinContext (Config *config)
         pinyin_load_phrase_library (context, index);
     }
     g_strfreev (indices);
+
+    /* load user phrase library. */
+    pinyin_load_phrase_library (context, USER_DICTIONARY);
 
     return context;
 }
@@ -104,7 +109,7 @@ LibPinyinBackEnd::initChewingContext (Config *config)
 {
     pinyin_context_t * context = NULL;
 
-    gchar * userdir = g_build_filename (g_get_home_dir(), ".cache",
+    gchar * userdir = g_build_filename (g_get_user_cache_dir (),
                                         "ibus", "libbopomofo", NULL);
     int retval = g_mkdir_with_parents (userdir, 0700);
     if (retval) {
@@ -114,7 +119,7 @@ LibPinyinBackEnd::initChewingContext (Config *config)
     g_free(userdir);
 
     const char *dicts = config->dictionaries ().c_str ();
-    gchar ** indices = g_strsplit_set (dicts, "", -1);
+    gchar ** indices = g_strsplit_set (dicts, ";", -1);
     for (size_t i = 0; i < g_strv_length(indices); ++i) {
         int index = atoi (indices [i]);
         if (index <= 1)
@@ -235,6 +240,67 @@ LibPinyinBackEnd::modified (void)
     m_timeout_id = g_timeout_add_seconds (LIBPINYIN_SAVE_TIMEOUT,
                                           LibPinyinBackEnd::timeoutCallback,
                                           static_cast<gpointer> (this));
+}
+
+gboolean
+LibPinyinBackEnd::importPinyinDictionary (const char * filename)
+{
+    /* user phrase library should be already loaded here. */
+    FILE * dictfile = fopen (filename, "r");
+    if (NULL == dictfile)
+        return FALSE;
+
+    import_iterator_t * iter = pinyin_begin_add_phrases
+        (m_pinyin_context, 15);
+
+    if (NULL == iter)
+        return FALSE;
+
+    char* linebuf = NULL; size_t size = 0; ssize_t read;
+    while ((read = getline (&linebuf, &size, dictfile)) != -1) {
+        if (0 == strlen (linebuf))
+            continue;
+
+        if ( '\n' == linebuf[strlen (linebuf) - 1] ) {
+            linebuf[strlen (linebuf) - 1] = '\0';
+        }
+
+        gchar ** items = g_strsplit_set (linebuf, " \t", 3);
+        guint len = g_strv_length (items);
+
+        gchar * phrase = NULL, * pinyin = NULL;
+        gint count = -1;
+        if (2 == len || 3 == len) {
+            phrase = items[0];
+            pinyin = items[1];
+            if (3 == len)
+                count = atoi (items[2]);
+        } else
+            continue;
+
+        pinyin_iterator_add_phrase (iter, phrase, pinyin, count);
+    }
+
+    pinyin_end_add_phrases (iter);
+    fclose (dictfile);
+
+    pinyin_save (m_pinyin_context);
+    return TRUE;
+}
+
+gboolean
+LibPinyinBackEnd::clearPinyinUserData (const char * target)
+{
+    if (0 == strcmp ("all", target))
+        pinyin_mask_out (m_pinyin_context, 0x0, 0x0);
+    else if (0 == strcmp ("user", target))
+        pinyin_mask_out (m_pinyin_context, PHRASE_INDEX_LIBRARY_MASK,
+                        PHRASE_INDEX_MAKE_TOKEN (15, null_token));
+    else
+        g_warning ("unknown clear target: %s.\n", target);
+
+    pinyin_save (m_pinyin_context);
+    return TRUE;
 }
 
 gboolean

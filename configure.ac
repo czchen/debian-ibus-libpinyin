@@ -21,8 +21,8 @@
 # if not 1, append datestamp to the version number.
 m4_define([ibus_released], [1])
 m4_define([ibus_major_version], [1])
-m4_define([ibus_minor_version], [4])
-m4_define([ibus_micro_version], [93])
+m4_define([ibus_minor_version], [6])
+m4_define([ibus_micro_version], [91])
 m4_define(ibus_maybe_datestamp,
     m4_esyscmd([if test x]ibus_released[ != x1; then date +.%Y%m%d | tr -d '\n\r'; fi]))
 
@@ -50,6 +50,7 @@ AC_ISC_POSIX
 AC_HEADER_STDC
 IT_PROG_INTLTOOL([0.35.0])
 AM_PROG_LIBTOOL
+AC_PROG_SED
 
 # check ibus
 PKG_CHECK_MODULES(IBUS, [
@@ -63,7 +64,7 @@ PKG_CHECK_MODULES(SQLITE, [
 AC_PATH_PROG(SQLITE3, sqlite3)
 
 PKG_CHECK_MODULES(LIBPINYIN, [
-    libpinyin >= 0.7.0
+    libpinyin >= 0.9.91
 ], [enable_libpinyin=yes])
 
 AM_CONDITIONAL(IBUS_BUILD_LIBPINYIN, [test x"$enable_libpinyin" = x"yes"])
@@ -206,7 +207,7 @@ src/Makefile
 src/libpinyin.xml.in
 setup/Makefile
 setup/ibus-setup-libpinyin
-setup/version.py
+setup/config.py
 data/Makefile
 data/icons/Makefile
 m4/Makefile
