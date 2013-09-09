@@ -20,9 +20,11 @@
  */
 #include "PYPConfig.h"
 
+#include <string.h>
 #include <pinyin.h>
 #include "PYBus.h"
 #include "PYLibPinyin.h"
+
 
 namespace PY {
 
@@ -30,6 +32,7 @@ const gchar * const CONFIG_CORRECT_PINYIN            = "CorrectPinyin";
 const gchar * const CONFIG_FUZZY_PINYIN              = "FuzzyPinyin";
 const gchar * const CONFIG_ORIENTATION               = "LookupTableOrientation";
 const gchar * const CONFIG_PAGE_SIZE                 = "LookupTablePageSize";
+const gchar * const CONFIG_CTRL_SWITCH               = "CtrlSwitch";
 const gchar * const CONFIG_SHIFT_SELECT_CANDIDATE    = "ShiftSelectCandidate";
 const gchar * const CONFIG_MINUS_EQUAL_PAGE          = "MinusEqualPage";
 const gchar * const CONFIG_COMMA_PERIOD_PAGE         = "CommaPeriodPage";
@@ -49,6 +52,8 @@ const gchar * const CONFIG_GUIDE_KEY                 = "GuideKey";
 const gchar * const CONFIG_AUXILIARY_SELECT_KEY_F    = "AuxiliarySelectKey_F";
 const gchar * const CONFIG_AUXILIARY_SELECT_KEY_KP   = "AuxiliarySelectKey_KP";
 const gchar * const CONFIG_ENTER_KEY                 = "EnterKey";
+const gchar * const CONFIG_IMPORT_DICTIONARY         = "ImportDictionary";
+const gchar * const CONFIG_CLEAR_USER_DATA           = "ClearUserData";
 
 const guint PINYIN_DEFAULT_OPTION =
         PINYIN_INCOMPLETE |
@@ -81,6 +86,7 @@ LibPinyinConfig::initDefaultValues (void)
 
     m_orientation = IBUS_ORIENTATION_HORIZONTAL;
     m_page_size = 5;
+    m_ctrl_switch = FALSE;
     m_shift_select_candidate = FALSE;
     m_minus_equal_page = TRUE;
     m_comma_period_page = TRUE;
@@ -134,6 +140,13 @@ LibPinyinConfig::readDefaultValues (void)
     GVariant *value;
     g_variant_iter_init (&iter, values);
     while (g_variant_iter_next (&iter, "{sv}", &name, &value)) {
+        /* skip signals here. */
+        if (0 == strcmp(CONFIG_IMPORT_DICTIONARY, name))
+            continue;
+
+        if (0 == strcmp(CONFIG_CLEAR_USER_DATA, name))
+            continue;
+
         valueChanged (m_section, name, value);
         g_free (name);
         g_variant_unref (value);
@@ -152,6 +165,7 @@ LibPinyinConfig::readDefaultValues (void)
         m_page_size = 5;
         g_warn_if_reached ();
     }
+    m_ctrl_switch = read(CONFIG_CTRL_SWITCH, false);
     m_dictionaries = read (CONFIG_DICTIONARIES, std::string("2"));
 
     /* fuzzy pinyin */
@@ -221,8 +235,9 @@ LibPinyinConfig::valueChanged (const std::string &section,
             m_page_size = 5;
             g_warn_if_reached ();
         }
-    }
-    else if (CONFIG_DICTIONARIES == name) {
+    } else if (CONFIG_CTRL_SWITCH == name) {
+        m_ctrl_switch = normalizeGVariant (value, false);
+    } else if (CONFIG_DICTIONARIES == name) {
         m_dictionaries = normalizeGVariant (value, std::string("2"));
     }
     /* fuzzy pinyin */
@@ -389,7 +404,14 @@ LibPinyinPinyinConfig::valueChanged (const std::string &section,
         m_comma_period_page = normalizeGVariant (value, true);
     else if (CONFIG_AUTO_COMMIT == name)
         m_auto_commit = normalizeGVariant (value, false);
-    /* correct pinyin */
+    else if (CONFIG_IMPORT_DICTIONARY == name) {
+        std::string filename = normalizeGVariant (value, std::string(""));
+        LibPinyinBackEnd::instance ().importPinyinDictionary(filename.c_str ());
+    }
+    else if (CONFIG_CLEAR_USER_DATA == name) {
+        std::string target = normalizeGVariant (value, std::string(""));
+        LibPinyinBackEnd::instance ().clearPinyinUserData(target.c_str ());
+    } /* correct pinyin */
     else if (CONFIG_CORRECT_PINYIN == name) {
         if (normalizeGVariant (value, true))
             m_option_mask |= PINYIN_CORRECT_ALL;

@@ -5,6 +5,7 @@
 #
 # Copyright (c) 2008-2010 Peng Huang <shawn.p.huang@gmail.com>
 # Copyright (c) 2010 BYVoid <byvoid1@gmail.com>
+# Copyright (c) 2011-2012 Peng Wu <alexepico@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,18 +32,15 @@ from gi.repository import Gtk
 from gi.repository import IBus
 from xdg import BaseDirectory
 
-import version
+import config
 from dicttreeview import DictionaryTreeView
 
-_ = lambda x : gettext.gettext(x)
+locale.setlocale(locale.LC_ALL, "")
+localedir = os.getenv("IBUS_LOCALEDIR")
+gettext.install('ibus-libpinyin', localedir)
 
 class PreferencesDialog:
     def __init__(self, engine):
-        locale.setlocale(locale.LC_ALL, "")
-        localedir = os.getenv("IBUS_LOCALEDIR")
-        gettext.bindtextdomain("ibus-libpinyin", localedir)
-        gettext.bind_textdomain_codeset("ibus-libpinyin", "UTF-8")
-
         self.__bus = IBus.Bus()
         self.__config = self.__bus.get_config()
         self.__builder = Gtk.Builder()
@@ -58,6 +56,7 @@ class PreferencesDialog:
             self.__init_pinyin()
             self.__init_fuzzy()
             self.__init_dictionary()
+            self.__init_user_data()
             self.__init_about()
         elif engine == "bopomofo":
             self.__config_namespace = "engine/Bopomofo"
@@ -65,7 +64,8 @@ class PreferencesDialog:
             self.__init_general()
             self.__init_bopomofo()
             self.__init_fuzzy()
-            #self.__init_dictionary()
+            self.__init_dictionary()
+            #self.__init_user_data()
             self.__init_about()
             self.__convert_fuzzy_pinyin_to_bopomofo()
 
@@ -82,6 +82,7 @@ class PreferencesDialog:
         self.__page_bopomofo_mode = self.__builder.get_object("pageBopomofoMode")
         self.__page_fuzzy = self.__builder.get_object("pageFuzzy")
         self.__page_dictionary = self.__builder.get_object("pageDictionary")
+        self.__page_user_data = self.__builder.get_object("pageUserData")
         self.__page_about = self.__builder.get_object("pageAbout")
 
         self.__page_general.hide()
@@ -89,6 +90,7 @@ class PreferencesDialog:
         self.__page_bopomofo_mode.hide()
         self.__page_fuzzy.hide()
         self.__page_dictionary.hide()
+        self.__page_user_data.hide()
         self.__page_about.hide()
 
     def __init_general(self):
@@ -103,27 +105,35 @@ class PreferencesDialog:
         self.__init_full_punct = self.__builder.get_object("InitFullPunct")
         self.__init_half_punct = self.__builder.get_object("InitHalfPunct")
         self.__init_simp = self.__builder.get_object("InitSimplifiedChinese")
-        #self.__init_trad = self.__builder.get_object("IniTraditionalChinese")
-        self.__dynamic_adjust = self.__builder.get_object("DynamicAdjust")
+        self.__init_trad = self.__builder.get_object("InitTraditionalChinese")
 
         # UI
         self.__lookup_table_page_size = self.__builder.get_object("LookupTablePageSize")
         self.__lookup_table_orientation = self.__builder.get_object("LookupTableOrientation")
+
+        self.__shift_switch = self.__builder.get_object("ShiftSwitch")
+        self.__ctrl_switch = self.__builder.get_object("CtrlSwitch")
+
+        self.__dynamic_adjust = self.__builder.get_object("DynamicAdjust")
 
         # read values
         self.__init_chinese.set_active(self.__get_value("InitChinese", True))
         self.__init_full.set_active(self.__get_value("InitFull", False))
         self.__init_full_punct.set_active(self.__get_value("InitFullPunct", True))
         self.__init_simp.set_active(self.__get_value("InitSimplifiedChinese", True))
-        self.__dynamic_adjust.set_active(self.__get_value("DynamicAdjust", True))
+
         self.__lookup_table_orientation.set_active(self.__get_value("LookupTableOrientation", 0))
         self.__lookup_table_page_size.set_value(self.__get_value("LookupTablePageSize", 5))
 
+        self.__shift_switch.set_active(not self.__get_value("CtrlSwitch", False))
+
+        self.__dynamic_adjust.set_active(self.__get_value("DynamicAdjust", True))
         # connect signals
         self.__init_chinese.connect("toggled", self.__toggled_cb, "InitChinese")
         self.__init_full.connect("toggled", self.__toggled_cb, "InitFull")
         self.__init_full_punct.connect("toggled", self.__toggled_cb, "InitFullPunct")
         self.__init_simp.connect("toggled", self.__toggled_cb, "InitSimplifiedChinese")
+        self.__ctrl_switch.connect("toggled", self.__toggled_cb, "CtrlSwitch")
         self.__dynamic_adjust.connect("toggled", self.__toggled_cb, "DynamicAdjust")
 
         def __lookup_table_page_size_changed_cb(adjustment):
@@ -341,12 +351,63 @@ class PreferencesDialog:
         # connect notify signal
         self.__dict_treeview.connect("notify::dictionaries", __notified_dicts_cb, self)
 
+    def __init_user_data(self):
+        #page User Data
+        self.__page_user_data.show()
+
+        self.__frame_lua_script = self.__builder.get_object("frameLuaScript")
+        path = os.path.join(config.get_data_dir(), 'user.lua')
+        if not os.access(path, os.R_OK):
+            self.__frame_lua_script.hide()
+
+        self.__edit_lua = self.__builder.get_object("EditLua")
+        self.__edit_lua.connect("clicked", self.__edit_lua_cb)
+
+        self.__import_dictionary = self.__builder.get_object("ImportDictionary")
+        self.__import_dictionary.connect("clicked", self.__import_dictionary_cb)
+
+        self.__clear_user_data = self.__builder.get_object("ClearUserData")
+        self.__clear_user_data.connect("clicked", self.__clear_user_data_cb, "user")
+        self.__clear_all_data = self.__builder.get_object("ClearAllData")
+        self.__clear_all_data.connect("clicked", self.__clear_user_data_cb, "all")
+
+    def __edit_lua_cb(self, widget):
+        import shutil
+        path = os.path.join(BaseDirectory.xdg_config_home, "ibus", "libpinyin")
+        os.path.exists(path) or os.makedirs(path)
+        path = os.path.join(path, "user.lua")
+        if not os.path.exists(path):
+            src = os.path.join(config.get_data_dir(), "user.lua")
+            shutil.copyfile(src, path)
+        os.system("xdg-open %s" % path)
+
+    def __import_dictionary_cb(self, widget):
+        dialog = Gtk.FileChooserDialog \
+            (_("Please choose a file"), None,
+             Gtk.FileChooserAction.OPEN,
+             (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+              Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
+
+        filter_text = Gtk.FileFilter()
+        filter_text.set_name("Text files")
+        filter_text.add_mime_type("text/plain")
+        dialog.add_filter(filter_text)
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            self.__set_value("ImportDictionary", dialog.get_filename())
+
+        dialog.destroy()
+
+    def __clear_user_data_cb(self, widget, name):
+        self.__set_value("ClearUserData", name)
+
     def __init_about(self):
         # page About
         self.__page_about.show()
 
         self.__name_version = self.__builder.get_object("NameVersion")
-        self.__name_version.set_markup(_("<big><b>Intelligent Pinyin %s</b></big>") % version.get_version())
+        self.__name_version.set_markup(_("<big><b>Intelligent Pinyin %s</b></big>") % config.get_version())
 
     def __changed_cb(self, widget, name):
         self.__set_value(name, widget.get_active())

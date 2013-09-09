@@ -1,4 +1,4 @@
-# vim:set et ts=4 sts=4:
+# vim:set noet ts=4:
 #
 # ibus-libpinyin - Intelligent Pinyin engine based on libpinyin for IBus
 #
@@ -17,5 +17,40 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-def get_version():
-    return "1.4.93"
+
+create_scripts = \
+	create_db.py \
+	id.py \
+	pydict.py \
+	valid_hanzi.py \
+	$(NULL)
+data_files = \
+	README \
+	rawdict_utf16_65105_freq.txt \
+	$(NULL)
+
+if IBUS_BUILD_DB_ANDROID
+main_db_DATA = \
+	android.db \
+	$(NULL)
+main_dbdir = $(pkgdatadir)/db
+endif
+
+android.db: $(android_raw_data) $(create_scripts)
+	$(AM_V_GEN) \
+	$(RM) $@; \
+	$(srcdir)/create_db.py $(srcdir)/rawdict_utf16_65105_freq.txt | @SQLITE3@ $@ || \
+		( $(RM) $@ ; exit 1 )
+
+EXTRA_DIST = \
+	$(data_files) \
+	$(create_scripts) \
+	$(NULL)
+
+CLEANFILES = \
+	$(main_db_DATA) \
+	$(NULL)
+
+DISTCLEANFILES = \
+	$(NULL)
+
