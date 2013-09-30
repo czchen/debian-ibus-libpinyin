@@ -5,6 +5,7 @@ ibus-libpinyin (1.6.91-1) unstable; urgency=low
 
   [ YunQiang Su ]
   * Bump build-dep on libpinyin4-dev
+  * Use dh-autoreconf to generate configure/Makefile.in
   * Team upload
 
  -- YunQiang Su <wzssyqa@gmail.com>  Mon, 30 Sep 2013 20:59:24 +0800
