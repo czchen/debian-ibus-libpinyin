@@ -7,6 +7,7 @@ ibus-libpinyin (1.6.91-1) unstable; urgency=low
   * Import new commit from upstream
       0001-Update-the-symbol-of-the-ibus-indicator.patch
       0002-fixes-lua-5.2-compile.patch
+  * Build depends on liblua5.2-dev
   * Bump build-dep on libpinyin4-dev
   * Use dh-autoreconf to generate configure/Makefile.in
   * Team upload
