@@ -1,0 +1,80 @@
+From 9ef836117508d9c0c938f57a5ffa5ffca7eb2e7b Mon Sep 17 00:00:00 2001
+From: Peng Wu <alexepico@gmail.com>
+Date: Fri, 26 Jul 2013 13:03:44 +0800
+Subject: [PATCH 1/2] Update the symbol of the ibus indicator
+
+---
+ src/PYPinyinProperties.cc | 14 +++++++++++++-
+ src/PYProperty.h          | 10 ++++++++++
+ 2 files changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/src/PYPinyinProperties.cc b/src/PYPinyinProperties.cc
+index 0a77163..66205de 100644
+--- a/src/PYPinyinProperties.cc
++++ b/src/PYPinyinProperties.cc
+@@ -26,6 +26,7 @@
+ namespace PY {
+ 
+ #define _(text) (dgettext (GETTEXT_PACKAGE, text))
++#define N_(text) text
+ 
+ PinyinProperties::PinyinProperties (Config & config)
+     : m_config (config),
+@@ -33,7 +34,7 @@ PinyinProperties::PinyinProperties (Config & config)
+       m_mode_full (m_config.initFull ()),
+       m_mode_full_punct (m_config.initFullPunct ()),
+       m_mode_simp (m_config.initSimpChinese ()),
+-      m_prop_chinese ("mode.chinese",
++      m_prop_chinese ("InputMode",
+                 PROP_TYPE_NORMAL,
+                 StaticText (m_mode_chinese ?
+                             _("Chinese") :
+@@ -83,6 +84,11 @@ PinyinProperties::PinyinProperties (Config & config)
+                 "ibus-setup",
+                 StaticText (_("Preferences")))
+ {
++    if (m_mode_chinese)
++        m_prop_chinese.setSymbol(N_("中"));
++    else
++        m_prop_chinese.setSymbol(N_("英"));
++
+     m_props.append (m_prop_chinese);
+     m_props.append (m_prop_full);
+     m_props.append (m_prop_full_punct);
+@@ -98,6 +104,12 @@ PinyinProperties::toggleModeChinese (void)
+     m_prop_chinese.setLabel (m_mode_chinese ?
+                              _("Chinese") :
+                              _("English"));
++
++    if (m_mode_chinese)
++        m_prop_chinese.setSymbol(N_("中"));
++    else
++        m_prop_chinese.setSymbol(N_("英"));
++
+     m_prop_chinese.setIcon (m_mode_chinese ?
+                             PKGDATADIR"/icons/chinese.svg" :
+                             PKGDATADIR"/icons/english.svg");
+diff --git a/src/PYProperty.h b/src/PYProperty.h
+index 70c0808..13b9340 100644
+--- a/src/PYProperty.h
++++ b/src/PYProperty.h
+@@ -55,6 +55,16 @@ public:
+         ibus_property_set_icon (get<IBusProperty> (), icon);
+     }
+ 
++    void setSymbol (IBusText *text)
++    {
++        ibus_property_set_symbol (get<IBusProperty> (), text);
++    }
++
++    void setSymbol (const gchar *text)
++    {
++        setSymbol (Text (text));
++    }
++
+     void setSensitive (gboolean sensitive)
+     {
+         ibus_property_set_sensitive (get<IBusProperty> (), sensitive);
+-- 
+1.8.4.rc3
+
