@@ -1,3 +1,14 @@
+ibus-libpinyin (1.6.91-1) unstable; urgency=low
+
+  [ Osamu Aoki ]
+  * Imported Upstream version 1.6.91
+
+  [ YunQiang Su ]
+  * Bump build-dep on libpinyin4-dev
+  * Team upload
+
+ -- YunQiang Su <wzssyqa@gmail.com>  Mon, 30 Sep 2013 20:59:24 +0800
+
 ibus-libpinyin (1.4.93-2) experimental; urgency=low
 
   * Team upload.
