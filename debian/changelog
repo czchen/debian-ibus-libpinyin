@@ -1,5 +1,7 @@
 ibus-libpinyin (1.6.91-1) unstable; urgency=low
 
+  * Team upload
+
   [ Osamu Aoki ]
   * Imported Upstream version 1.6.91
 
@@ -10,7 +12,6 @@ ibus-libpinyin (1.6.91-1) unstable; urgency=low
   * Build depends on liblua5.1-dev
   * Bump build-dep on libpinyin4-dev
   * Use gnome-common and autogen.sh work with dh-autoreconf
-  * Team upload
 
  -- YunQiang Su <wzssyqa@gmail.com>  Mon, 30 Sep 2013 20:59:24 +0800
 
