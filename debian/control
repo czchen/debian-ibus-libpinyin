@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: IME Packaging Team <pkg-ime-devel@lists.alioth.debian.org>
 Uploaders: Asias He <asias@debian.org>
 Build-Depends: debhelper (>= 8.0.0), dh-autoreconf, python-support (>= 0.90), hardening-wrapper, libpinyin4-dev (>= 0.9.93),
- libibus-1.0-dev (>= 1.4.99.20120917), gettext, intltool, libtool, sqlite3, libsqlite3-dev, uuid-dev, liblua5.2-dev,
+ libibus-1.0-dev (>= 1.4.99.20120917), gettext, intltool, libtool, sqlite3, libsqlite3-dev, uuid-dev, liblua5.1-dev,
  gnome-common
 Standards-Version: 3.9.4
 Homepage: https://github.com/libpinyin/ibus-libpinyin
