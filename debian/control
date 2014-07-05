@@ -2,12 +2,12 @@ Source: ibus-libpinyin
 Section: utils
 Priority: optional
 Maintainer: IME Packaging Team <pkg-ime-devel@lists.alioth.debian.org>
-Uploaders: Asias He <asias@debian.org>
-Build-Depends: debhelper (>= 8.0.0), dh-autoreconf, hardening-wrapper, 
+Uploaders: Asias He <asias@debian.org>, Aron Xu <aron@debian.org>
+Build-Depends: debhelper (>= 8.0.0), dh-autoreconf,
  libpinyin4-dev (>= 0.9.93), libibus-1.0-dev (>= 1.4.99.20120917), 
  gettext, intltool, libtool, gnome-common, python,
  sqlite3, libsqlite3-dev, uuid-dev, liblua5.1-dev
-Standards-Version: 3.9.4
+Standards-Version: 3.9.5
 Homepage: https://github.com/libpinyin/ibus-libpinyin
 Vcs-Git:  git://anonscm.debian.org/pkg-ime/ibus-libpinyin.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-ime/ibus-libpinyin.git
