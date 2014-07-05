@@ -6,7 +6,7 @@ CFLAGS += $(CPPFLAGS)
 CXXFLAGS += $(CPPFLAGS)
 
 %:
-	dh $@ --with autoreconf,python2
+	dh $@ --with autoreconf,python2 --parallel
 
 override_dh_autoreconf:
 	dh_autoreconf ./autogen.sh

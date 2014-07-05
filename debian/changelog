@@ -4,7 +4,9 @@ ibus-libpinyin (1.6.92-1) unstable; urgency=low
   * debian/patches:
     - Remove 0001-Update-the-symbol-of-the-ibus-indicator.patch,
       applied upstream.
-  * debian/rules: use default buildflags from dpkg-buildflags
+  * debian/rules:
+    - Use default buildflags from dpkg-buildflags.
+    - Allow parallel building.
   * debian/control: 
     - Remove obsolete B-D on hardening-wrappers
     - Std-ver: 3.9.4 -> 3.9.5, no change required.
