@@ -1,3 +1,9 @@
+ibus-libpinyin (1.6.92-1) UNRELEASED; urgency=low
+
+  * New upstream release.
+
+ -- Aron Xu <aron@debian.org>  Sun, 06 Jul 2014 01:54:26 +0800
+
 ibus-libpinyin (1.6.91-1) unstable; urgency=low
 
   * Team upload
