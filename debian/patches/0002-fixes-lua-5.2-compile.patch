@@ -8,13 +8,11 @@ Subject: [PATCH 2/2] fixes lua 5.2 compile
  lua/lua-plugin.c      | 9 +++++++++
  2 files changed, 17 insertions(+)
 
-diff --git a/lua/lua-plugin-init.c b/lua/lua-plugin-init.c
-index b607b2a..8e95286 100644
 --- a/lua/lua-plugin-init.c
 +++ b/lua/lua-plugin-init.c
-@@ -26,6 +26,14 @@
+@@ -34,6 +34,14 @@
+ #endif
  
- #include "lua-plugin.h"
  
 +#if LUA_VERSION_NUM >= 502
 +/* ugly hack for lua 5.2 */
@@ -27,13 +25,11 @@ index b607b2a..8e95286 100644
  static const luaL_Reg lualibs[] = {
    {"", luaopen_base},
    {LUA_TABLIBNAME, luaopen_table},
-diff --git a/lua/lua-plugin.c b/lua/lua-plugin.c
-index 9fd36fb..5ccb837 100644
 --- a/lua/lua-plugin.c
 +++ b/lua/lua-plugin.c
-@@ -25,6 +25,15 @@
+@@ -34,6 +34,15 @@
  
- #include "lua-plugin.h"
+ #endif
  
 +#if LUA_VERSION_NUM >= 502
 +/* ugly hack for lua 5.2 */
@@ -47,6 +43,3 @@ index 9fd36fb..5ccb837 100644
  #define IBUS_ENGINE_PLUGIN_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), IBUS_TYPE_ENGINE_PLUGIN, IBusEnginePluginPrivate))
  
  struct _IBusEnginePluginPrivate{
--- 
-1.8.4.rc3
-
