@@ -22,7 +22,7 @@
 m4_define([ibus_released], [1])
 m4_define([ibus_major_version], [1])
 m4_define([ibus_minor_version], [6])
-m4_define([ibus_micro_version], [91])
+m4_define([ibus_micro_version], [92])
 m4_define(ibus_maybe_datestamp,
     m4_esyscmd([if test x]ibus_released[ != x1; then date +.%Y%m%d | tr -d '\n\r'; fi]))
 
@@ -54,7 +54,7 @@ AC_PROG_SED
 
 # check ibus
 PKG_CHECK_MODULES(IBUS, [
-    ibus-1.0 >= 1.3.99
+    ibus-1.0 >= 1.4.0
 ])
 
 # check sqlite
