@@ -1,6 +1,14 @@
-ibus-libpinyin (1.6.92-1) UNRELEASED; urgency=low
+ibus-libpinyin (1.6.92-1) unstable; urgency=low
 
   * New upstream release.
+  * debian/patches:
+    - Remove 0001-Update-the-symbol-of-the-ibus-indicator.patch,
+      applied upstream.
+  * debian/rules: use default buildflags from dpkg-buildflags
+  * debian/control: 
+    - Remove obsolete B-D on hardening-wrappers
+    - Std-ver: 3.9.4 -> 3.9.5, no change required.
+    - Add myself to Uploaders.
 
  -- Aron Xu <aron@debian.org>  Sun, 06 Jul 2014 01:54:26 +0800
 
