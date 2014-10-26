@@ -1,18 +1,31 @@
 ibus-libpinyin (1.6.92-1) unstable; urgency=low
 
+  * Team upload
+
+  [ Aron Xu ]
   * New upstream release.
   * debian/patches:
     - Remove 0001-Update-the-symbol-of-the-ibus-indicator.patch,
       applied upstream.
   * debian/rules:
-    - Use default buildflags from dpkg-buildflags.
-    - Allow parallel building.
+    - Set default buildflags from dpkg-buildflags.
   * debian/control: 
     - Remove obsolete B-D on hardening-wrappers
-    - Std-ver: 3.9.4 -> 3.9.5, no change required.
+    - Std-ver: 3.9.4 -> 3.9.6, no change required.
     - Add myself to Uploaders.
 
- -- Aron Xu <aron@debian.org>  Sun, 06 Jul 2014 01:54:26 +0800
+  [ Osamu Aoki ]
+  * Merged 1.6.91-2.
+
+ -- Osamu Aoki <osamu@debian.org>  Sun, 26 Oct 2014 23:28:30 +0900
+
+ibus-libpinyin (1.6.91-2) unstable; urgency=medium
+
+  * Team upload
+  * Add ibus dependency. Closes: #753377
+  * Drop hadening-wrapper.
+
+ -- Osamu Aoki <osamu@debian.org>  Sun, 26 Oct 2014 16:40:47 +0900
 
 ibus-libpinyin (1.6.91-1) unstable; urgency=low
 
