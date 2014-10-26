@@ -1,2 +1,3 @@
 version=3
-http://githubredir.debian.net/github/libpinyin/ibus-libpinyin/ (.*).tar.gz
+opts="filenamemangle=s/(?:.*)?v?(\d[\d\.]*)\.tar\.gz/ibus-libpinyin-$1.tar.gz/" \
+  https://github.com/libpinyin/ibus-libpinyin/tags (?:.*/)?v?(\d[\d\.]*)\.tar\.gz
