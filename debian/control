@@ -3,18 +3,27 @@ Section: utils
 Priority: optional
 Maintainer: IME Packaging Team <pkg-ime-devel@lists.alioth.debian.org>
 Uploaders: Asias He <asias@debian.org>
-Build-Depends: debhelper (>= 8.0.0), dh-autoreconf, hardening-wrapper, 
- libpinyin4-dev (>= 0.9.93), libibus-1.0-dev (>= 1.4.99.20120917), 
- gettext, intltool, libtool, gnome-common, python,
- sqlite3, libsqlite3-dev, uuid-dev, liblua5.1-dev
-Standards-Version: 3.9.4
+Build-Depends: debhelper (>= 9),
+               dh-autoreconf,
+               gettext,
+               gnome-common,
+               intltool,
+               libibus-1.0-dev (>= 1.4.99.20120917),
+               liblua5.1-dev,
+               libpinyin4-dev (>= 0.9.93),
+               libsqlite3-dev,
+               libtool,
+               python,
+               sqlite3,
+               uuid-dev
+Standards-Version: 3.9.6
 Homepage: https://github.com/libpinyin/ibus-libpinyin
-Vcs-Git:  git://anonscm.debian.org/pkg-ime/ibus-libpinyin.git
+Vcs-Git: git://anonscm.debian.org/pkg-ime/ibus-libpinyin.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-ime/ibus-libpinyin.git
 
 Package: ibus-libpinyin
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}
+Depends: ibus, ${misc:Depends}, ${python:Depends}, ${shlibs:Depends}
 Description: Intelligent Pinyin engine based on libpinyin for IBus
  It includes a Chinese Pinyin input method and a Chinese ZhuYin (Bopomofo)
  input method based on libpinyin for IBus.
