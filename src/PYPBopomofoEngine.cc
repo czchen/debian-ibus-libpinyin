@@ -31,25 +31,21 @@
 using namespace PY;
 
 /* constructor */
-LibPinyinBopomofoEngine::LibPinyinBopomofoEngine (IBusEngine *engine)
+BopomofoEngine::BopomofoEngine (IBusEngine *engine)
     : Engine (engine),
-      m_props (LibPinyinBopomofoConfig::instance ()),
+      m_props (BopomofoConfig::instance ()),
       m_prev_pressed_key (IBUS_VoidSymbol),
       m_input_mode (MODE_INIT),
-      m_fallback_editor (new FallbackEditor (m_props, LibPinyinBopomofoConfig::instance()))
+      m_fallback_editor (new FallbackEditor (m_props, BopomofoConfig::instance()))
 {
     gint i;
 
-#if IBUS_CHECK_VERSION (1, 5, 4)
-    m_input_purpose = IBUS_INPUT_PURPOSE_FREE_FORM;
-#endif
-
     /* create editors */
-    m_editors[MODE_INIT].reset (new LibPinyinBopomofoEditor (m_props, LibPinyinBopomofoConfig::instance ()));
-    m_editors[MODE_PUNCT].reset (new PunctEditor (m_props, LibPinyinBopomofoConfig::instance ()));
+    m_editors[MODE_INIT].reset (new BopomofoEditor (m_props, BopomofoConfig::instance ()));
+    m_editors[MODE_PUNCT].reset (new PunctEditor (m_props, BopomofoConfig::instance ()));
 
     m_props.signalUpdateProperty ().connect
-        (std::bind (&LibPinyinBopomofoEngine::updateProperty, this, _1));
+        (std::bind (&BopomofoEngine::updateProperty, this, _1));
 
     for (i = MODE_INIT; i < MODE_LAST; i++) {
         connectEditorSignals (m_editors[i]);
@@ -59,19 +55,21 @@ LibPinyinBopomofoEngine::LibPinyinBopomofoEngine (IBusEngine *engine)
 }
 
 /* destructor */
-LibPinyinBopomofoEngine::~LibPinyinBopomofoEngine (void)
+BopomofoEngine::~BopomofoEngine (void)
 {
 }
 
+/* keep synced with pinyin engine. */
 gboolean
-LibPinyinBopomofoEngine::processKeyEvent (guint keyval, guint keycode, guint modifiers)
+BopomofoEngine::processAccelKeyEvent (guint keyval, guint keycode,
+                                      guint modifiers)
 {
-    gboolean retval = FALSE;
+    std::string accel;
+    pinyin_accelerator_name (keyval, modifiers, accel);
 
-#if IBUS_CHECK_VERSION (1, 5, 4)
-    if (IBUS_INPUT_PURPOSE_PASSWORD == m_input_purpose)
-        return retval;
-#endif
+    /* Safe Guard for empty key. */
+    if ("" == accel)
+        return FALSE;
 
     /* check Shift or Ctrl + Release hotkey,
      * and then ignore other Release key event */
@@ -81,12 +79,8 @@ LibPinyinBopomofoEngine::processKeyEvent (guint keyval, guint keycode, guint mod
         gboolean triggered = FALSE;
 
         if (m_prev_pressed_key == keyval) {
-            if (LibPinyinBopomofoConfig::instance ().ctrlSwitch ()) {
-                if (keyval == IBUS_Control_L || keyval == IBUS_Control_R)
-                    triggered = TRUE;
-            } else {
-                if (keyval == IBUS_Shift_L || keyval == IBUS_Shift_R)
-                    triggered = TRUE;
+            if (PinyinConfig::instance ().mainSwitch () == accel) {
+                triggered = TRUE;
             }
         }
 
@@ -99,7 +93,7 @@ LibPinyinBopomofoEngine::processKeyEvent (guint keyval, guint keycode, guint mod
 
         if (m_input_mode == MODE_INIT &&
             m_editors[MODE_INIT]->text ().empty ()) {
-            /* If it is init mode, and no any previous input text,
+            /* If it is in init mode, and no any previous input text,
              * we will let client applications to handle release key event */
             return FALSE;
         } else {
@@ -107,12 +101,44 @@ LibPinyinBopomofoEngine::processKeyEvent (guint keyval, guint keycode, guint mod
         }
     }
 
-    /* Toggle simp/trad Chinese Mode when hotkey Ctrl + Shift + F pressed */
-    if (keyval == IBUS_F && scmshm_test (modifiers, (IBUS_SHIFT_MASK | IBUS_CONTROL_MASK))) {
-        m_props.toggleModeSimp();
-        m_prev_pressed_key = IBUS_F;
+    /* Toggle full/half Letter Mode */
+    if (PinyinConfig::instance (). letterSwitch () == accel) {
+        m_props.toggleModeFull ();
+        m_prev_pressed_key = keyval;
         return TRUE;
     }
+
+    /* Toggle full/half Punct Mode */
+    if (PinyinConfig::instance (). punctSwitch () == accel) {
+        m_props.toggleModeFullPunct ();
+        m_prev_pressed_key = keyval;
+        return TRUE;
+    }
+
+    /* Toggle simp/trad Chinese Mode */
+    if (PinyinConfig::instance ().tradSwitch () == accel) {
+        m_props.toggleModeSimp ();
+        m_prev_pressed_key = keyval;
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+gboolean
+BopomofoEngine::processKeyEvent (guint keyval, guint keycode, guint modifiers)
+{
+    gboolean retval = FALSE;
+
+    if (contentIsPassword ())
+        return retval;
+
+    if (processAccelKeyEvent (keyval, keycode, modifiers))
+        return TRUE;
+
+    /* assume release key event is handled in processAccelKeyEvent. */
+    if (modifiers & IBUS_RELEASE_MASK)
+        return FALSE;
 
     if (m_props.modeChinese ()) {
         if (G_UNLIKELY (m_input_mode == MODE_INIT &&
@@ -141,32 +167,21 @@ LibPinyinBopomofoEngine::processKeyEvent (guint keyval, guint keycode, guint mod
 }
 
 void
-LibPinyinBopomofoEngine::focusIn (void)
+BopomofoEngine::focusIn (void)
 {
     registerProperties (m_props.properties ());
 }
 
 void
-LibPinyinBopomofoEngine::focusOut (void)
+BopomofoEngine::focusOut (void)
 {
-
-#if IBUS_CHECK_VERSION (1, 5, 4)
-    m_input_purpose = IBUS_INPUT_PURPOSE_FREE_FORM;
-#endif
+    Engine::focusOut ();
 
     reset ();
 }
 
-#if IBUS_CHECK_VERSION(1, 5, 4)
 void
-LibPinyinBopomofoEngine::setContentType (guint purpose, guint hints)
-{
-    m_input_purpose = (IBusInputPurpose) purpose;
-}
-#endif
-
-void
-LibPinyinBopomofoEngine::reset (void)
+BopomofoEngine::reset (void)
 {
     m_prev_pressed_key = IBUS_VoidSymbol;
     m_input_mode = MODE_INIT;
@@ -177,49 +192,49 @@ LibPinyinBopomofoEngine::reset (void)
 }
 
 void
-LibPinyinBopomofoEngine::enable (void)
+BopomofoEngine::enable (void)
 {
     m_props.reset ();
 }
 
 void
-LibPinyinBopomofoEngine::disable (void)
+BopomofoEngine::disable (void)
 {
 }
 
 void
-LibPinyinBopomofoEngine::pageUp (void)
+BopomofoEngine::pageUp (void)
 {
     m_editors[m_input_mode]->pageUp ();
 }
 
 void
-LibPinyinBopomofoEngine::pageDown (void)
+BopomofoEngine::pageDown (void)
 {
     m_editors[m_input_mode]->pageDown ();
 }
 
 void
-LibPinyinBopomofoEngine::cursorUp (void)
+BopomofoEngine::cursorUp (void)
 {
     m_editors[m_input_mode]->cursorUp ();
 }
 
 void
-LibPinyinBopomofoEngine::cursorDown (void)
+BopomofoEngine::cursorDown (void)
 {
     m_editors[m_input_mode]->cursorDown ();
 }
 
 inline void
-LibPinyinBopomofoEngine::showSetupDialog (void)
+BopomofoEngine::showSetupDialog (void)
 {
     g_spawn_command_line_async
         (LIBEXECDIR"/ibus-setup-libpinyin bopomofo", NULL);
 }
 
 gboolean
-LibPinyinBopomofoEngine::propertyActivate (const gchar *prop_name,
+BopomofoEngine::propertyActivate (const gchar *prop_name,
                                            guint prop_state)
 {
     const static std::string setup ("setup");
@@ -234,7 +249,7 @@ LibPinyinBopomofoEngine::propertyActivate (const gchar *prop_name,
 }
 
 void
-LibPinyinBopomofoEngine::candidateClicked (guint index,
+BopomofoEngine::candidateClicked (guint index,
                                            guint button,
                                            guint state)
 {
@@ -242,7 +257,7 @@ LibPinyinBopomofoEngine::candidateClicked (guint index,
 }
 
 void
-LibPinyinBopomofoEngine::commitText (Text & text)
+BopomofoEngine::commitText (Text & text)
 {
     Engine::commitText (text);
     if (m_input_mode != MODE_INIT)
@@ -257,33 +272,33 @@ LibPinyinBopomofoEngine::commitText (Text & text)
 }
 
 void
-LibPinyinBopomofoEngine::connectEditorSignals (EditorPtr editor)
+BopomofoEngine::connectEditorSignals (EditorPtr editor)
 {
     editor->signalCommitText ().connect (
-        std::bind (&LibPinyinBopomofoEngine::commitText, this, _1));
+        std::bind (&BopomofoEngine::commitText, this, _1));
 
     editor->signalUpdatePreeditText ().connect (
-        std::bind (&LibPinyinBopomofoEngine::updatePreeditText, this, _1, _2, _3));
+        std::bind (&BopomofoEngine::updatePreeditText, this, _1, _2, _3));
     editor->signalShowPreeditText ().connect (
-        std::bind (&LibPinyinBopomofoEngine::showPreeditText, this));
+        std::bind (&BopomofoEngine::showPreeditText, this));
     editor->signalHidePreeditText ().connect (
-        std::bind (&LibPinyinBopomofoEngine::hidePreeditText, this));
+        std::bind (&BopomofoEngine::hidePreeditText, this));
 
     editor->signalUpdateAuxiliaryText ().connect (
-        std::bind (&LibPinyinBopomofoEngine::updateAuxiliaryText, this, _1, _2));
+        std::bind (&BopomofoEngine::updateAuxiliaryText, this, _1, _2));
     editor->signalShowAuxiliaryText ().connect (
-        std::bind (&LibPinyinBopomofoEngine::showAuxiliaryText, this));
+        std::bind (&BopomofoEngine::showAuxiliaryText, this));
     editor->signalHideAuxiliaryText ().connect (
-        std::bind (&LibPinyinBopomofoEngine::hideAuxiliaryText, this));
+        std::bind (&BopomofoEngine::hideAuxiliaryText, this));
 
     editor->signalUpdateLookupTable ().connect (
-        std::bind (&LibPinyinBopomofoEngine::updateLookupTable, this, _1, _2));
+        std::bind (&BopomofoEngine::updateLookupTable, this, _1, _2));
     editor->signalUpdateLookupTableFast ().connect (
-        std::bind (&LibPinyinBopomofoEngine::updateLookupTableFast, this, _1, _2));
+        std::bind (&BopomofoEngine::updateLookupTableFast, this, _1, _2));
     editor->signalShowLookupTable ().connect (
-        std::bind (&LibPinyinBopomofoEngine::showLookupTable, this));
+        std::bind (&BopomofoEngine::showLookupTable, this));
     editor->signalHideLookupTable ().connect (
-        std::bind (&LibPinyinBopomofoEngine::hideLookupTable, this));
+        std::bind (&BopomofoEngine::hideLookupTable, this));
 }
 
 

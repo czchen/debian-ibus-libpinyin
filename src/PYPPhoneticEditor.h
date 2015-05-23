@@ -28,10 +28,10 @@
 
 namespace PY {
 
-class LibPinyinPhoneticEditor : public Editor {
+class PhoneticEditor : public Editor {
 public:
-    LibPinyinPhoneticEditor (PinyinProperties & props, Config & config);
-    ~LibPinyinPhoneticEditor ();
+    PhoneticEditor (PinyinProperties & props, Config & config);
+    virtual ~PhoneticEditor ();
 
 public:
     /* virtual functions */
@@ -47,7 +47,7 @@ public:
     virtual gboolean processFunctionKey (guint keyval, guint keycode, guint modifiers);
     virtual void updateLookupTable ();
     virtual void updateLookupTableFast ();
-    virtual gboolean fillLookupTableByPage ();
+    virtual gboolean fillLookupTable ();
 
 protected:
     gboolean selectCandidate (guint i);

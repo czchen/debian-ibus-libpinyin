@@ -21,8 +21,8 @@
 # if not 1, append datestamp to the version number.
 m4_define([ibus_released], [1])
 m4_define([ibus_major_version], [1])
-m4_define([ibus_minor_version], [6])
-m4_define([ibus_micro_version], [92])
+m4_define([ibus_minor_version], [7])
+m4_define([ibus_micro_version], [1])
 m4_define(ibus_maybe_datestamp,
     m4_esyscmd([if test x]ibus_released[ != x1; then date +.%Y%m%d | tr -d '\n\r'; fi]))
 
@@ -64,40 +64,12 @@ PKG_CHECK_MODULES(SQLITE, [
 AC_PATH_PROG(SQLITE3, sqlite3)
 
 PKG_CHECK_MODULES(LIBPINYIN, [
-    libpinyin >= 0.9.91
+    libpinyin >= 1.1.0
 ], [enable_libpinyin=yes])
-
-AM_CONDITIONAL(IBUS_BUILD_LIBPINYIN, [test x"$enable_libpinyin" = x"yes"])
 
 LIBPINYIN_DATADIR=`$PKG_CONFIG --variable=pkgdatadir libpinyin`
 
 AC_SUBST(LIBPINYIN_DATADIR)
-
-# check uuid
-AC_CHECK_FUNCS([uuid_create], [], [
-    PKG_CHECK_MODULES(LIBUUID, uuid, [
-        # uuid.pc exist
-        AC_DEFINE(HAVE_LIBUUID, 1, [Define if found libuuid])
-        HAVE_LIBUUID=yes
-    ], [
-        # uuid.pc does not exist
-        uuid_old_LIBS=$LIBS
-        AC_CHECK_HEADERS(uuid/uuid.h, [
-            AC_SEARCH_LIBS(uuid_generate, uuid, [
-                test x"$ac_cv_search_uuid_generate" != x"none required" && LIBUUID_LIBS=$ac_cv_search_uuid_generate
-                AC_DEFINE(HAVE_LIBUUID, 1, [Define if found libuuid])
-                HAVE_LIBUUID=yes
-            ], [
-                AC_MSG_ERROR([Can not find uuid_create and uuid_generate in libc or libuuid])
-            ])
-        ], [
-            AC_MSG_ERROR([Can not find uuid_create and uuid_generate in libc or libuuid])
-        ])
-        LIBS=$uuid_old_LIBS
-    ])
-])
-
-AM_CONDITIONAL(HAVE_LIBUUID, test x"$HAVE_LIBUUID" = x"yes")
 
 # check if ibus_config_get_values, which is available in ibus-1.3.99+ (git master)
 save_CFLAGS="$CFLAGS"
@@ -114,6 +86,11 @@ AC_PATH_PROG(ENV, env)
 AC_SUBST(ENV)
 
 # check python
+AC_ARG_WITH(python,
+    AS_HELP_STRING([--with-python[=PATH]],
+        [Select python2 or python3]),
+    [PYTHON=$with_python], []
+)
 AM_PATH_PYTHON([2.5])
 
 # --enable-boost
@@ -140,7 +117,7 @@ AC_ARG_ENABLE(opencc,
 )
 if test x"$enable_opencc" = x"yes"; then
     # check opencc
-    PKG_CHECK_MODULES(OPENCC, [opencc], [
+    PKG_CHECK_MODULES(OPENCC, [opencc >= 1.0.0], [
         AC_DEFINE(HAVE_OPENCC, 1, [Define if found opencc])
     ])
 fi
@@ -151,6 +128,10 @@ AC_SUBST(GETTEXT_PACKAGE)
 AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE,"$GETTEXT_PACKAGE", [Gettext package])
 
 AM_GLIB_GNU_GETTEXT
+
+PKG_CHECK_MODULES(GDK3, [
+    gdk-3.0
+])
 
 # --disable-lua-extension
 AC_ARG_ENABLE(lua-extension,

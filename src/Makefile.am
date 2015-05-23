@@ -18,19 +18,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-# @MAINTAINER_MODE_FALSE@skip_gentable=test -f $@ ||
-
-# AM_CFLAGS = \
-# 	@IBUS_CFLAGS@ \
-# 	@SQLITE_CFLAGS@ \
-# 	-DPKGDATADIR=\"$(pkgdatadir)\" \
-# 	$(NULL)
-# AM_CXXFLAGS = $(AM_CFLAGS)
-# AM_LDADD = \
-# 	@IBUS_LIBS@ \
-# 	@SQLITE_LIBS@ \
-# 	$(NULL)
-# 
 
 libexec_PROGRAMS = ibus-engine-libpinyin
 ibus_engine_libpinyin_built_c_sources = \
@@ -65,7 +52,6 @@ ibus_engine_libpinyin_h_sources = \
 	PYProperty.h \
 	PYPunctEditor.h \
 	PYRawEditor.h \
-	PYRegex.h \
 	PYSignal.h \
 	PYSimpTradConverter.h \
 	PYString.h \
@@ -85,7 +71,6 @@ ibus_engine_libpinyin_h_sources = \
 	PYPConfig.h \
 	$(NULL)
 
-if IBUS_BUILD_LIBPINYIN
 ibus_engine_libpinyin_c_sources += \
 	PYPConfig.cc \
 	PYLibPinyin.cc \
@@ -97,7 +82,6 @@ ibus_engine_libpinyin_c_sources += \
 	PYPPinyinEngine.cc \
 	PYPBopomofoEngine.cc \
 	$(NULL)
-endif
 
 
 if IBUS_BUILD_LUA_EXTENSION
@@ -125,6 +109,7 @@ ibus_engine_libpinyin_CXXFLAGS = \
 	@SQLITE_CFLAGS@ \
 	@LIBPINYIN_CFLAGS@ \
 	@OPENCC_CFLAGS@ \
+	@GDK3_CFLAGS@ \
 	-DGETTEXT_PACKAGE=\"@GETTEXT_PACKAGE@\" \
 	-DPKGDATADIR=\"$(pkgdatadir)\" \
 	-DLIBEXECDIR=\"$(libexecdir)\" \
@@ -145,22 +130,15 @@ ibus_engine_libpinyin_LDADD = \
 	@SQLITE_LIBS@ \
 	@LIBPINYIN_LIBS@ \
 	@OPENCC_LIBS@ \
+	@GDK3_LIBS@ \
 	$(NULL)
 
-if HAVE_LIBUUID
-ibus_engine_libpinyin_CXXFLAGS += $(LIBUUID_CFLAGS)
-ibus_engine_libpinyin_LDADD += $(LIBUUID_LIBS)
-endif
-
-if IBUS_BUILD_LIBPINYIN
-   ibus_engine_libpinyin_CXXFLAGS += \
-	-DIBUS_BUILD_LIBPINYIN \
+ibus_engine_libpinyin_CXXFLAGS += \
 	-DLIBPINYIN_DATADIR=\"@LIBPINYIN_DATADIR@\/data\" \
 	$(NULL)
-endif
 
 if IBUS_BUILD_LUA_EXTENSION
-    ibus_engine_libpinyin_CXXFLAGS +=  \
+ibus_engine_libpinyin_CXXFLAGS +=  \
 	@LUA_CFLAGS@ \
 	-DIBUS_BUILD_LUA_EXTENSION \
 	-I$(top_srcdir)/lua/ \

@@ -30,9 +30,7 @@
 #include "PYBus.h"
 #include "PYConfig.h"
 #include "PYPConfig.h"
-#ifdef IBUS_BUILD_LIBPINYIN
 #include "PYLibPinyin.h"
-#endif
 
 using namespace PY;
 
@@ -88,14 +86,10 @@ start_component (void)
         exit (0);
     }
 
-#ifdef IBUS_BUILD_LIBPINYIN
     LibPinyinBackEnd::init ();
-#endif
 
-#ifdef IBUS_BUILD_LIBPINYIN
-    LibPinyinPinyinConfig::init (bus);
-    LibPinyinBopomofoConfig::init (bus);
-#endif
+    PinyinConfig::init (bus);
+    BopomofoConfig::init (bus);
 
     g_signal_connect ((IBusBus *)bus, "disconnected", G_CALLBACK (ibus_disconnected_cb), NULL);
 
@@ -107,7 +101,7 @@ start_component (void)
                                     "https://github.com/libpinyin/ibus-libpinyin",
                                     "",
                                     "ibus-libpinyin");
-#ifdef IBUS_BUILD_LIBPINYIN
+
     ibus_component_add_engine (component,
                                ibus_engine_desc_new ("libpinyin-debug",
                                                      N_("Intelligent Pinyin (debug)"),
@@ -121,31 +115,26 @@ start_component (void)
                                                      "us"));
     ibus_component_add_engine (component,
                                ibus_engine_desc_new ("libbopomofo-debug",
-                                                     N_("Intelligent Bopomofo (debug)"),
-                                                     N_("Intelligent Bopomofo input method (debug)"),
-                                                     "zh_CN",
+                                                     N_("Bopomofo (debug)"),
+                                                     N_("Bopomofo input method (debug)"),
+                                                     "zh_TW",
                                                      "GPL",
                                                      "BYVoid <byvoid1@gmail.com>\n"
                                                      "Peng Wu <alexepico@gmail.com>\n"
                                                      "Peng Huang <shawn.p.huang@gmail.com>",
                                                      PKGDATADIR "/icons/ibus-bopomofo.svg",
                                                      "us"));
-#endif
 
     factory = ibus_factory_new (ibus_bus_get_connection (bus));
 
     if (ibus) {
-#ifdef IBUS_BUILD_LIBPINYIN
         ibus_factory_add_engine (factory, "libpinyin", IBUS_TYPE_PINYIN_ENGINE);
         ibus_factory_add_engine (factory, "libbopomofo", IBUS_TYPE_PINYIN_ENGINE);
-#endif
         ibus_bus_request_name (bus, "org.freedesktop.IBus.Libpinyin", 0);
     }
     else {
-#ifdef IBUS_BUILD_LIBPINYIN
         ibus_factory_add_engine (factory, "libpinyin-debug", IBUS_TYPE_PINYIN_ENGINE);
         ibus_factory_add_engine (factory, "libbopomofo-debug", IBUS_TYPE_PINYIN_ENGINE);
-#endif
         ibus_bus_register_component (bus, component);
     }
 
@@ -157,18 +146,15 @@ start_component (void)
 static void
 sigterm_cb (int sig)
 {
-#ifdef IBUS_BUILD_LIBPINYIN
     LibPinyinBackEnd::finalize ();
-#endif
+
     ::exit (EXIT_FAILURE);
 }
 
 static void
 atexit_cb (void)
 {
-#ifdef IBUS_BUILD_LIBPINYIN
     LibPinyinBackEnd::finalize ();
-#endif
 }
 
 int

@@ -32,7 +32,7 @@ const gchar * const CONFIG_CORRECT_PINYIN            = "CorrectPinyin";
 const gchar * const CONFIG_FUZZY_PINYIN              = "FuzzyPinyin";
 const gchar * const CONFIG_ORIENTATION               = "LookupTableOrientation";
 const gchar * const CONFIG_PAGE_SIZE                 = "LookupTablePageSize";
-const gchar * const CONFIG_CTRL_SWITCH               = "CtrlSwitch";
+const gchar * const CONFIG_REMEMBER_EVERY_INPUT      = "RememberEveryInput";
 const gchar * const CONFIG_SHIFT_SELECT_CANDIDATE    = "ShiftSelectCandidate";
 const gchar * const CONFIG_MINUS_EQUAL_PAGE          = "MinusEqualPage";
 const gchar * const CONFIG_COMMA_PERIOD_PAGE         = "CommaPeriodPage";
@@ -53,16 +53,22 @@ const gchar * const CONFIG_AUXILIARY_SELECT_KEY_F    = "AuxiliarySelectKey_F";
 const gchar * const CONFIG_AUXILIARY_SELECT_KEY_KP   = "AuxiliarySelectKey_KP";
 const gchar * const CONFIG_ENTER_KEY                 = "EnterKey";
 const gchar * const CONFIG_IMPORT_DICTIONARY         = "ImportDictionary";
+const gchar * const CONFIG_EXPORT_DICTIONARY         = "ExportDictionary";
 const gchar * const CONFIG_CLEAR_USER_DATA           = "ClearUserData";
+/* const gchar * const CONFIG_CTRL_SWITCH               = "CtrlSwitch"; */
+const gchar * const CONFIG_MAIN_SWITCH               = "MainSwitch";
+const gchar * const CONFIG_LETTER_SWITCH             = "LetterSwitch";
+const gchar * const CONFIG_PUNCT_SWITCH              = "PunctSwitch";
+const gchar * const CONFIG_TRAD_SWITCH               = "TradSwitch";
 
-const guint PINYIN_DEFAULT_OPTION =
+const pinyin_option_t PINYIN_DEFAULT_OPTION =
         PINYIN_INCOMPLETE |
         CHEWING_INCOMPLETE|
         PINYIN_CORRECT_ALL|
         0;
 
-std::unique_ptr<LibPinyinPinyinConfig> LibPinyinPinyinConfig::m_instance;
-std::unique_ptr<LibPinyinBopomofoConfig> LibPinyinBopomofoConfig::m_instance;
+std::unique_ptr<PinyinConfig> PinyinConfig::m_instance;
+std::unique_ptr<BopomofoConfig> BopomofoConfig::m_instance;
 
 LibPinyinConfig::LibPinyinConfig (Bus & bus, const std::string & name)
     : Config (bus, name)
@@ -86,14 +92,15 @@ LibPinyinConfig::initDefaultValues (void)
 
     m_orientation = IBUS_ORIENTATION_HORIZONTAL;
     m_page_size = 5;
-    m_ctrl_switch = FALSE;
+    m_remember_every_input = FALSE;
+
     m_shift_select_candidate = FALSE;
     m_minus_equal_page = TRUE;
     m_comma_period_page = TRUE;
     m_auto_commit = FALSE;
 
     m_double_pinyin = FALSE;
-    m_double_pinyin_schema = 0;
+    m_double_pinyin_schema = DOUBLE_PINYIN_DEFAULT;
     m_double_pinyin_show_raw = FALSE;
 
     m_init_chinese = TRUE;
@@ -103,6 +110,11 @@ LibPinyinConfig::initDefaultValues (void)
     m_special_phrases = TRUE;
 
     m_dictionaries = "2";
+
+    m_main_switch = "<Shift>";
+    m_letter_switch = "";
+    m_punct_switch = "<Control>period";
+    m_trad_switch = "<Control><Shift>f";
 }
 
 static const struct {
@@ -144,6 +156,9 @@ LibPinyinConfig::readDefaultValues (void)
         if (0 == strcmp(CONFIG_IMPORT_DICTIONARY, name))
             continue;
 
+        if (0 == strcmp(CONFIG_EXPORT_DICTIONARY, name))
+            continue;
+
         if (0 == strcmp(CONFIG_CLEAR_USER_DATA, name))
             continue;
 
@@ -165,8 +180,14 @@ LibPinyinConfig::readDefaultValues (void)
         m_page_size = 5;
         g_warn_if_reached ();
     }
-    m_ctrl_switch = read(CONFIG_CTRL_SWITCH, false);
-    m_dictionaries = read (CONFIG_DICTIONARIES, std::string("2"));
+    m_remember_every_input = read (CONFIG_REMEMBER_EVERY_INPUT, false);
+
+    m_dictionaries = read (CONFIG_DICTIONARIES, std::string ("2"));
+
+    m_main_switch = read (CONFIG_MAIN_SWITCH, std::string ("<Shift>"));
+    m_letter_switch = read (CONFIG_LETTER_SWITCH, std::string (""));
+    m_punct_switch = read (CONFIG_PUNCT_SWITCH, std::string ("<Control>period"));
+    m_trad_switch = read (CONFIG_TRAD_SWITCH, std::string ("<Control><Shift>f"));
 
     /* fuzzy pinyin */
     if (read (CONFIG_FUZZY_PINYIN, false))
@@ -185,31 +206,6 @@ LibPinyinConfig::readDefaultValues (void)
         }
     }
 #endif
-}
-
-
-static inline bool
-normalizeGVariant (GVariant *value, bool defval)
-{
-    if (value == NULL || g_variant_classify (value) != G_VARIANT_CLASS_BOOLEAN)
-        return defval;
-    return g_variant_get_boolean (value);
-}
-
-static inline gint
-normalizeGVariant (GVariant *value, gint defval)
-{
-    if (value == NULL || g_variant_classify (value) != G_VARIANT_CLASS_INT32)
-        return defval;
-    return g_variant_get_int32 (value);
-}
-
-static inline std::string
-normalizeGVariant (GVariant *value, const std::string &defval)
-{
-    if (value == NULL || g_variant_classify (value) != G_VARIANT_CLASS_STRING)
-        return defval;
-    return g_variant_get_string (value, NULL);
 }
 
 gboolean
@@ -235,10 +231,18 @@ LibPinyinConfig::valueChanged (const std::string &section,
             m_page_size = 5;
             g_warn_if_reached ();
         }
-    } else if (CONFIG_CTRL_SWITCH == name) {
-        m_ctrl_switch = normalizeGVariant (value, false);
+    } else if (CONFIG_REMEMBER_EVERY_INPUT == name) {
+        m_remember_every_input = normalizeGVariant (value, false);
     } else if (CONFIG_DICTIONARIES == name) {
-        m_dictionaries = normalizeGVariant (value, std::string("2"));
+        m_dictionaries = normalizeGVariant (value, std::string ("2"));
+    } else if (CONFIG_MAIN_SWITCH == name) {
+        m_main_switch = normalizeGVariant (value, std::string ("<Shift>"));
+    } else if (CONFIG_LETTER_SWITCH == name) {
+        m_letter_switch = normalizeGVariant (value, std::string (""));
+    } else if (CONFIG_PUNCT_SWITCH == name) {
+        m_punct_switch = normalizeGVariant (value, std::string ("<Control>period"));
+    } else if (CONFIG_TRAD_SWITCH == name) {
+        m_trad_switch = normalizeGVariant (value, std::string ("<Control><Shift>f"));
     }
     /* fuzzy pinyin */
     else if (CONFIG_FUZZY_PINYIN == name) {
@@ -275,12 +279,10 @@ LibPinyinConfig::valueChangedCallback (IBusConfig  *config,
 
     self->valueChanged (section, name, value);
 
-#ifdef IBUS_BUILD_LIBPINYIN
     if (self->m_section == "engine/pinyin")
         LibPinyinBackEnd::instance ().setPinyinOptions (self);
     if (self->m_section == "engine/bopomofo")
         LibPinyinBackEnd::instance ().setChewingOptions (self);
-#endif
 }
 
 static const struct {
@@ -300,32 +302,51 @@ static const struct {
     { "CorrectPinyin_ON_ONG",   PINYIN_CORRECT_ON_ONG   },
 };
 
-LibPinyinPinyinConfig::LibPinyinPinyinConfig (Bus & bus)
+/* Here are the double pinyin keyboard scheme mapping table. */
+static const struct{
+    gint double_pinyin_keyboard;
+    DoublePinyinScheme scheme;
+} double_pinyin_schemes [] = {
+    {0, DOUBLE_PINYIN_MS},
+    {1, DOUBLE_PINYIN_ZRM},
+    {2, DOUBLE_PINYIN_ABC},
+    {3, DOUBLE_PINYIN_ZIGUANG},
+    {4, DOUBLE_PINYIN_PYJJ},
+    {5, DOUBLE_PINYIN_XHE}
+};
+
+PinyinConfig::PinyinConfig (Bus & bus)
     : LibPinyinConfig (bus, "pinyin")
 {
 }
 
 void
-LibPinyinPinyinConfig::init (Bus & bus)
+PinyinConfig::init (Bus & bus)
 {
     if (m_instance.get () == NULL) {
-        m_instance.reset (new LibPinyinPinyinConfig (bus));
+        m_instance.reset (new PinyinConfig (bus));
         m_instance->readDefaultValues ();
     }
 }
 
 void
-LibPinyinPinyinConfig::readDefaultValues (void)
+PinyinConfig::readDefaultValues (void)
 {
     LibPinyinConfig::readDefaultValues ();
 #if !defined(HAVE_IBUS_CONFIG_GET_VALUES)
     /* double pinyin */
     m_double_pinyin = read (CONFIG_DOUBLE_PINYIN, false);
-    m_double_pinyin_schema = read (CONFIG_DOUBLE_PINYIN_SCHEMA, 0);
-    if (m_double_pinyin_schema > DOUBLE_PINYIN_LAST) {
-        m_double_pinyin_schema = 0;
-        g_warn_if_reached ();
+
+    const gint map = read (CONFIG_DOUBLE_PINYIN_SCHEMA, 0);
+    m_double_pinyin_schema = DOUBLE_PINYIN_DEFAULT;
+
+    for (guint i = 0; i < G_N_ELEMENTS (double_pinyin_schemes); i++) {
+        if (map == double_pinyin_schemes[i].double_pinyin_keyboard) {
+            /* set double pinyin scheme. */
+            m_double_pinyin_schema = double_pinyin_schemes[i].scheme;
+        }
     }
+
     m_double_pinyin_show_raw = read (CONFIG_DOUBLE_PINYIN_SHOW_RAW, false);
 
     /* init states */
@@ -360,7 +381,7 @@ LibPinyinPinyinConfig::readDefaultValues (void)
 }
 
 gboolean
-LibPinyinPinyinConfig::valueChanged (const std::string &section,
+PinyinConfig::valueChanged (const std::string &section,
                                      const std::string &name,
                                      GVariant          *value)
 {
@@ -374,13 +395,15 @@ LibPinyinPinyinConfig::valueChanged (const std::string &section,
     if (CONFIG_DOUBLE_PINYIN == name)
         m_double_pinyin = normalizeGVariant (value, false);
     else if (CONFIG_DOUBLE_PINYIN_SCHEMA == name) {
-        m_double_pinyin_schema = normalizeGVariant (value, 0);
-#if 0
-        if (m_double_pinyin_schema > DOUBLE_PINYIN_LAST) {
-            m_double_pinyin_schema = 0;
-            g_warn_if_reached ();
+        const gint map = normalizeGVariant (value, 0);
+        m_double_pinyin_schema = DOUBLE_PINYIN_DEFAULT;
+
+        for (guint i = 0; i < G_N_ELEMENTS (double_pinyin_schemes); i++) {
+            if (map == double_pinyin_schemes[i].double_pinyin_keyboard) {
+                /* set double pinyin scheme. */
+                m_double_pinyin_schema = double_pinyin_schemes[i].scheme;
+            }
         }
-#endif
     }
     else if (CONFIG_DOUBLE_PINYIN_SHOW_RAW == name)
         m_double_pinyin_show_raw = normalizeGVariant (value, false);
@@ -406,7 +429,11 @@ LibPinyinPinyinConfig::valueChanged (const std::string &section,
         m_auto_commit = normalizeGVariant (value, false);
     else if (CONFIG_IMPORT_DICTIONARY == name) {
         std::string filename = normalizeGVariant (value, std::string(""));
-        LibPinyinBackEnd::instance ().importPinyinDictionary(filename.c_str ());
+        LibPinyinBackEnd::instance ().importPinyinDictionary (filename.c_str ());
+    }
+    else if (CONFIG_EXPORT_DICTIONARY == name) {
+        std::string filename = normalizeGVariant (value, std::string(""));
+        LibPinyinBackEnd::instance ().exportPinyinDictionary (filename.c_str ());
     }
     else if (CONFIG_CLEAR_USER_DATA == name) {
         std::string target = normalizeGVariant (value, std::string(""));
@@ -434,22 +461,33 @@ LibPinyinPinyinConfig::valueChanged (const std::string &section,
     return TRUE;
 }
 
-LibPinyinBopomofoConfig::LibPinyinBopomofoConfig (Bus & bus)
+/* Here are the chewing keyboard scheme mapping table. */
+static const struct {
+    gint bopomofo_keyboard;
+    ChewingScheme scheme;
+} chewing_schemes [] = {
+    {0, CHEWING_STANDARD},
+    {1, CHEWING_GINYIEH},
+    {2, CHEWING_ETEN},
+    {3, CHEWING_IBM}
+};
+
+BopomofoConfig::BopomofoConfig (Bus & bus)
     : LibPinyinConfig (bus, "bopomofo")
 {
 }
 
 void
-LibPinyinBopomofoConfig::init (Bus & bus)
+BopomofoConfig::init (Bus & bus)
 {
     if (m_instance.get () == NULL) {
-        m_instance.reset (new LibPinyinBopomofoConfig (bus));
+        m_instance.reset (new BopomofoConfig (bus));
         m_instance->readDefaultValues ();
     }
 }
 
 void
-LibPinyinBopomofoConfig::readDefaultValues (void)
+BopomofoConfig::readDefaultValues (void)
 {
     LibPinyinConfig::readDefaultValues ();
 #if !defined(HAVE_IBUS_CONFIG_GET_VALUES)
@@ -461,7 +499,15 @@ LibPinyinBopomofoConfig::readDefaultValues (void)
 
     m_special_phrases = read (CONFIG_SPECIAL_PHRASES, false);
 
-    m_bopomofo_keyboard_mapping = read (CONFIG_BOPOMOFO_KEYBOARD_MAPPING, 0);
+    const gint map = read (CONFIG_BOPOMOFO_KEYBOARD_MAPPING, 0);
+    m_bopomofo_keyboard_mapping = CHEWING_DEFAULT;
+
+    for (guint i = 0; i < G_N_ELEMENTS (chewing_schemes); i++) {
+        if (map == chewing_schemes[i].bopomofo_keyboard) {
+            /* set chewing scheme. */
+            m_bopomofo_keyboard_mapping = chewing_schemes[i].scheme;
+        }
+    }
 
     m_select_keys = read (CONFIG_SELECT_KEYS, 0);
     if (m_select_keys >= 9) m_select_keys = 0;
@@ -473,7 +519,7 @@ LibPinyinBopomofoConfig::readDefaultValues (void)
 }
 
 gboolean
-LibPinyinBopomofoConfig::valueChanged (const std::string &section,
+BopomofoConfig::valueChanged (const std::string &section,
                                        const std::string &name,
                                        GVariant          *value)
 {
@@ -494,9 +540,17 @@ LibPinyinBopomofoConfig::valueChanged (const std::string &section,
         m_init_simp_chinese = normalizeGVariant (value, false);
     else if (CONFIG_SPECIAL_PHRASES == name)
         m_special_phrases = normalizeGVariant (value, false);
-    else if (CONFIG_BOPOMOFO_KEYBOARD_MAPPING == name)
-        m_bopomofo_keyboard_mapping = normalizeGVariant (value, 0);
-    else if (CONFIG_SELECT_KEYS == name) {
+    else if (CONFIG_BOPOMOFO_KEYBOARD_MAPPING == name) {
+        const gint map = normalizeGVariant (value, 0);
+        m_bopomofo_keyboard_mapping = CHEWING_DEFAULT;
+
+        for (guint i = 0; i < G_N_ELEMENTS (chewing_schemes); i++) {
+            if (map == chewing_schemes[i].bopomofo_keyboard) {
+                /* set chewing scheme. */
+                m_bopomofo_keyboard_mapping = chewing_schemes[i].scheme;
+            }
+        }
+    } else if (CONFIG_SELECT_KEYS == name) {
         m_select_keys = normalizeGVariant (value, 0);
         if (m_select_keys >= 9) m_select_keys = 0;
     }

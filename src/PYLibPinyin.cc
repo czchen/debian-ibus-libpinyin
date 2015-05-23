@@ -35,7 +35,7 @@ static LibPinyinBackEnd libpinyin_backend;
 
 LibPinyinBackEnd::LibPinyinBackEnd () {
     m_timeout_id = 0;
-    m_timer = g_timer_new();
+    m_timer = g_timer_new ();
     m_pinyin_context = NULL;
     m_chewing_context = NULL;
 }
@@ -64,7 +64,7 @@ LibPinyinBackEnd::initPinyinContext (Config *config)
                                         "ibus", "libpinyin", NULL);
     int retval = g_mkdir_with_parents (userdir, 0700);
     if (retval) {
-        g_free(userdir); userdir = NULL;
+        g_free (userdir); userdir = NULL;
     }
     context = pinyin_init (LIBPINYIN_DATADIR, userdir);
     g_free (userdir);
@@ -89,7 +89,7 @@ LibPinyinBackEnd::initPinyinContext (Config *config)
 pinyin_instance_t *
 LibPinyinBackEnd::allocPinyinInstance ()
 {
-    Config * config = &LibPinyinPinyinConfig::instance ();
+    Config * config = &PinyinConfig::instance ();
     if (NULL == m_pinyin_context) {
         m_pinyin_context = initPinyinContext (config);
     }
@@ -135,7 +135,7 @@ LibPinyinBackEnd::initChewingContext (Config *config)
 pinyin_instance_t *
 LibPinyinBackEnd::allocChewingInstance ()
 {
-    Config *config = &LibPinyinBopomofoConfig::instance ();
+    Config *config = &BopomofoConfig::instance ();
     if (NULL == m_chewing_context) {
         m_chewing_context = initChewingContext (config);
     }
@@ -162,33 +162,14 @@ LibPinyinBackEnd::finalize (void) {
     m_instance.reset ();
 }
 
-/* Here are the double pinyin keyboard scheme mapping table. */
-static const struct{
-    gint double_pinyin_keyboard;
-    DoublePinyinScheme scheme;
-} double_pinyin_options [] = {
-    {0, DOUBLE_PINYIN_MS},
-    {1, DOUBLE_PINYIN_ZRM},
-    {2, DOUBLE_PINYIN_ABC},
-    {3, DOUBLE_PINYIN_ZIGUANG},
-    {4, DOUBLE_PINYIN_PYJJ},
-    {5, DOUBLE_PINYIN_XHE}
-};
-
 gboolean
 LibPinyinBackEnd::setPinyinOptions (Config *config)
 {
     if (NULL == m_pinyin_context)
         return FALSE;
 
-    const gint map = config->doublePinyinSchema ();
-    for (guint i = 0; i < G_N_ELEMENTS (double_pinyin_options); i++) {
-        if (map == double_pinyin_options[i].double_pinyin_keyboard) {
-            /* set double pinyin scheme. */
-            DoublePinyinScheme scheme = double_pinyin_options[i].scheme;
-            pinyin_set_double_pinyin_scheme (m_pinyin_context, scheme);
-        }
-    }
+    DoublePinyinScheme scheme = config->doublePinyinSchema ();
+    pinyin_set_double_pinyin_scheme (m_pinyin_context, scheme);
 
     pinyin_option_t options = config->option()
         | USE_RESPLIT_TABLE | USE_DIVIDED_TABLE;
@@ -196,32 +177,14 @@ LibPinyinBackEnd::setPinyinOptions (Config *config)
     return TRUE;
 }
 
-/* Here are the chewing keyboard scheme mapping table. */
-static const struct {
-    gint bopomofo_keyboard;
-    ChewingScheme scheme;
-} chewing_options [] = {
-    {0, CHEWING_STANDARD},
-    {1, CHEWING_GINYIEH},
-    {2, CHEWING_ETEN},
-    {3, CHEWING_IBM}
-};
-
-
 gboolean
 LibPinyinBackEnd::setChewingOptions (Config *config)
 {
     if (NULL == m_chewing_context)
         return FALSE;
 
-    const gint map = config->bopomofoKeyboardMapping ();
-    for (guint i = 0; i < G_N_ELEMENTS (chewing_options); i++) {
-        if (map == chewing_options[i].bopomofo_keyboard) {
-            /* TODO: set chewing scheme. */
-            ChewingScheme scheme = chewing_options[i].scheme;
-            pinyin_set_chewing_scheme (m_chewing_context, scheme);
-        }
-    }
+    ChewingScheme scheme = config->bopomofoKeyboardMapping ();
+    pinyin_set_chewing_scheme (m_chewing_context, scheme);
 
     pinyin_option_t options = config->option() | USE_TONE;
     pinyin_set_options(m_chewing_context, options);
@@ -251,7 +214,7 @@ LibPinyinBackEnd::importPinyinDictionary (const char * filename)
         return FALSE;
 
     import_iterator_t * iter = pinyin_begin_add_phrases
-        (m_pinyin_context, 15);
+        (m_pinyin_context, USER_DICTIONARY);
 
     if (NULL == iter)
         return FALSE;
@@ -279,6 +242,8 @@ LibPinyinBackEnd::importPinyinDictionary (const char * filename)
             continue;
 
         pinyin_iterator_add_phrase (iter, phrase, pinyin, count);
+
+        g_strfreev (items);
     }
 
     pinyin_end_add_phrases (iter);
@@ -289,17 +254,99 @@ LibPinyinBackEnd::importPinyinDictionary (const char * filename)
 }
 
 gboolean
+LibPinyinBackEnd::exportPinyinDictionary (const char * filename)
+{
+    /* user phrase library should be already loaded here. */
+    FILE * dictfile = fopen (filename, "w");
+    if (NULL == dictfile)
+        return FALSE;
+
+    export_iterator_t * iter = pinyin_begin_get_phrases
+        (m_pinyin_context, USER_DICTIONARY);
+
+    if (NULL == iter)
+        return FALSE;
+
+    /* use " " as the separator. */
+    while (pinyin_iterator_has_next_phrase (iter)) {
+        gchar * phrase = NULL; gchar * pinyin = NULL;
+        gint count = -1;
+
+        g_assert (pinyin_iterator_get_next_phrase (iter, &phrase, &pinyin, &count));
+
+        if (-1 == count) /* skip output the default count. */
+            fprintf (dictfile, "%s %s\n", phrase, pinyin);
+        else /* output the count. */
+            fprintf (dictfile, "%s %s %d\n", phrase, pinyin, count);
+
+        g_free (phrase); g_free (pinyin);
+    }
+
+    fclose (dictfile);
+    return TRUE;
+}
+
+gboolean
 LibPinyinBackEnd::clearPinyinUserData (const char * target)
 {
     if (0 == strcmp ("all", target))
         pinyin_mask_out (m_pinyin_context, 0x0, 0x0);
     else if (0 == strcmp ("user", target))
         pinyin_mask_out (m_pinyin_context, PHRASE_INDEX_LIBRARY_MASK,
-                        PHRASE_INDEX_MAKE_TOKEN (15, null_token));
+                        PHRASE_INDEX_MAKE_TOKEN (USER_DICTIONARY, null_token));
     else
         g_warning ("unknown clear target: %s.\n", target);
 
     pinyin_save (m_pinyin_context);
+    return TRUE;
+}
+
+gboolean
+LibPinyinBackEnd::rememberUserInput (pinyin_instance_t * instance)
+{
+    /* pre-check the incomplete pinyin keys. */
+    guint len = 0;
+    g_assert (pinyin_get_n_pinyin (instance, &len));
+
+    if (0 == len || len >= MAX_PHRASE_LENGTH)
+        return FALSE;
+
+    size_t i = 0;
+    for ( ; i < len; ++i) {
+        PinyinKey *key = NULL;
+        g_assert (pinyin_get_pinyin_key (instance, i, &key));
+        if (pinyin_get_pinyin_is_incomplete (instance, key))
+            return FALSE;
+    }
+
+    /* prepare pinyin string. */
+    GPtrArray *array = g_ptr_array_new ();
+    for (i = 0; i < len; ++i) {
+        PinyinKey *key = NULL;
+        g_assert (pinyin_get_pinyin_key (instance, i, &key));
+        gchar * pinyin = NULL;
+        g_assert (pinyin_get_pinyin_string (instance, key, &pinyin));
+        g_ptr_array_add (array, pinyin);
+    }
+    g_ptr_array_add (array, NULL);
+
+    gchar **strings = (gchar **) g_ptr_array_free (array, FALSE);
+    gchar *pinyins = g_strjoinv ("'", strings);
+    g_strfreev (strings);
+
+    /* remember user input. */
+    import_iterator_t * iter = NULL;
+    pinyin_context_t * context = pinyin_get_context (instance);
+    iter = pinyin_begin_add_phrases (context, USER_DICTIONARY);
+    char * phrase = NULL;
+    g_assert (pinyin_get_sentence (instance, &phrase));
+    g_assert (pinyin_iterator_add_phrase (iter, phrase, pinyins, -1));
+    pinyin_end_add_phrases (iter);
+    g_free (phrase);
+    g_free (pinyins);
+
+    /* save later,
+       will mark modified from pinyin/bopomofo editor. */
     return TRUE;
 }
 

@@ -26,7 +26,7 @@
 using namespace PY;
 
 /* init static members */
-LibPinyinPhoneticEditor::LibPinyinPhoneticEditor (PinyinProperties &props,
+PhoneticEditor::PhoneticEditor (PinyinProperties &props,
                                                   Config &config):
     Editor (props, config),
     m_pinyin_len (0),
@@ -34,11 +34,11 @@ LibPinyinPhoneticEditor::LibPinyinPhoneticEditor (PinyinProperties &props,
 {
 }
 
-LibPinyinPhoneticEditor::~LibPinyinPhoneticEditor (){
+PhoneticEditor::~PhoneticEditor (){
 }
 
 gboolean
-LibPinyinPhoneticEditor::processSpace (guint keyval, guint keycode,
+PhoneticEditor::processSpace (guint keyval, guint keycode,
                                        guint modifiers)
 {
     if (!m_text)
@@ -58,7 +58,7 @@ LibPinyinPhoneticEditor::processSpace (guint keyval, guint keycode,
 }
 
 gboolean
-LibPinyinPhoneticEditor::processFunctionKey (guint keyval, guint keycode, guint modifiers)
+PhoneticEditor::processFunctionKey (guint keyval, guint keycode, guint modifiers)
 {
     if (m_text.empty ())
         return FALSE;
@@ -163,23 +163,23 @@ LibPinyinPhoneticEditor::processFunctionKey (guint keyval, guint keycode, guint 
 }
 
 gboolean
-LibPinyinPhoneticEditor::processKeyEvent (guint keyval, guint keycode, guint modifiers)
+PhoneticEditor::processKeyEvent (guint keyval, guint keycode, guint modifiers)
 {
     return FALSE;
 }
 
 void
-LibPinyinPhoneticEditor::updateLookupTableFast (void)
+PhoneticEditor::updateLookupTableFast (void)
 {
     Editor::updateLookupTableFast (m_lookup_table, TRUE);
 }
 
 void
-LibPinyinPhoneticEditor::updateLookupTable (void)
+PhoneticEditor::updateLookupTable (void)
 {
     m_lookup_table.clear ();
 
-    fillLookupTableByPage ();
+    fillLookupTable ();
     if (m_lookup_table.size()) {
         Editor::updateLookupTable (m_lookup_table, TRUE);
     } else {
@@ -187,8 +187,9 @@ LibPinyinPhoneticEditor::updateLookupTable (void)
     }
 }
 
+#if 0
 gboolean
-LibPinyinPhoneticEditor::fillLookupTableByPage (void)
+PhoneticEditor::fillLookupTableByPage (void)
 {
     guint len = 0;
     pinyin_get_n_candidate (m_instance, &len);
@@ -227,9 +228,39 @@ LibPinyinPhoneticEditor::fillLookupTableByPage (void)
 
     return TRUE;
 }
+#endif
+
+gboolean
+PhoneticEditor::fillLookupTable (void)
+{
+    guint len = 0;
+    pinyin_get_n_candidate (m_instance, &len);
+
+    String word;
+    for (guint i = 0; i < len; i++) {
+        lookup_candidate_t * candidate = NULL;
+        pinyin_get_candidate (m_instance, i, &candidate);
+
+        const gchar * phrase_string = NULL;
+        pinyin_get_candidate_string (m_instance, candidate, &phrase_string);
+
+        /* show get candidates. */
+        if (G_LIKELY (m_props.modeSimp ())) {
+            word = phrase_string;
+        } else { /* Traditional Chinese */
+            word.truncate (0);
+            SimpTradConverter::simpToTrad (phrase_string, word);
+        }
+
+        Text text (word);
+        m_lookup_table.appendCandidate (text);
+    }
+
+    return TRUE;
+}
 
 void
-LibPinyinPhoneticEditor::pageUp (void)
+PhoneticEditor::pageUp (void)
 {
     if (G_LIKELY (m_lookup_table.pageUp ())) {
         updateLookupTableFast ();
@@ -239,10 +270,9 @@ LibPinyinPhoneticEditor::pageUp (void)
 }
 
 void
-LibPinyinPhoneticEditor::pageDown (void)
+PhoneticEditor::pageDown (void)
 {
-    if (G_LIKELY((m_lookup_table.pageDown ()) ||
-                 (fillLookupTableByPage () && m_lookup_table.pageDown()))) {
+    if (G_LIKELY(m_lookup_table.pageDown ())) {
         updateLookupTableFast ();
         updatePreeditText ();
         updateAuxiliaryText ();
@@ -250,7 +280,7 @@ LibPinyinPhoneticEditor::pageDown (void)
 }
 
 void
-LibPinyinPhoneticEditor::cursorUp (void)
+PhoneticEditor::cursorUp (void)
 {
     if (G_LIKELY (m_lookup_table.cursorUp ())) {
         updateLookupTableFast ();
@@ -260,13 +290,8 @@ LibPinyinPhoneticEditor::cursorUp (void)
 }
 
 void
-LibPinyinPhoneticEditor::cursorDown (void)
+PhoneticEditor::cursorDown (void)
 {
-    if (G_LIKELY ((m_lookup_table.cursorPos () == m_lookup_table.size() - 1) &&
-                  (fillLookupTableByPage () == FALSE))) {
-        return;
-    }
-
     if (G_LIKELY (m_lookup_table.cursorDown ())) {
         updateLookupTableFast ();
         updatePreeditText ();
@@ -275,13 +300,13 @@ LibPinyinPhoneticEditor::cursorDown (void)
 }
 
 void
-LibPinyinPhoneticEditor::candidateClicked (guint index, guint button, guint state)
+PhoneticEditor::candidateClicked (guint index, guint button, guint state)
 {
     selectCandidateInPage (index);
 }
 
 void
-LibPinyinPhoneticEditor::reset (void)
+PhoneticEditor::reset (void)
 {
     m_pinyin_len = 0;
     m_lookup_table.clear ();
@@ -292,7 +317,7 @@ LibPinyinPhoneticEditor::reset (void)
 }
 
 void
-LibPinyinPhoneticEditor::update (void)
+PhoneticEditor::update (void)
 {
     guint lookup_cursor = getLookupCursor ();
     pinyin_guess_candidates (m_instance, lookup_cursor);
@@ -303,39 +328,26 @@ LibPinyinPhoneticEditor::update (void)
 }
 
 void
-LibPinyinPhoneticEditor::commit (const gchar *str)
+PhoneticEditor::commit (const gchar *str)
 {
     StaticText text(str);
     commitText (text);
 }
 
 guint
-LibPinyinPhoneticEditor::getPinyinCursor ()
+PhoneticEditor::getPinyinCursor ()
 {
     guint len = 0;
-    pinyin_get_n_pinyin (m_instance, &len);
 
     /* Translate cursor position to pinyin position. */
-    guint pinyin_cursor = len;
+    guint16 pinyin_cursor = 0;
+    pinyin_get_pinyin_key_rest_offset (m_instance, m_cursor, &pinyin_cursor);
 
-    guint16 prev_end = 0, cur_end;
-    for (size_t i = 0; i < len; ++i) {
-        PinyinKeyPos *pos = NULL;
-        pinyin_get_pinyin_key_rest (m_instance, i, &pos);
-        pinyin_get_pinyin_key_rest_positions (m_instance, pos, NULL, &cur_end);
-
-        if (prev_end <= m_cursor && m_cursor < cur_end)
-            pinyin_cursor = i;
-
-        prev_end = cur_end;
-    }
-
-    g_assert (pinyin_cursor >= 0);
     return pinyin_cursor;
 }
 
 guint
-LibPinyinPhoneticEditor::getLookupCursor (void)
+PhoneticEditor::getLookupCursor (void)
 {
     guint len = 0;
     pinyin_get_n_pinyin (m_instance, &len);
@@ -348,7 +360,7 @@ LibPinyinPhoneticEditor::getLookupCursor (void)
 }
 
 gboolean
-LibPinyinPhoneticEditor::selectCandidate (guint i)
+PhoneticEditor::selectCandidate (guint i)
 {
     guint len = 0;
     pinyin_get_n_candidate (m_instance, &len);
@@ -401,7 +413,7 @@ LibPinyinPhoneticEditor::selectCandidate (guint i)
 }
 
 gboolean
-LibPinyinPhoneticEditor::selectCandidateInPage (guint i)
+PhoneticEditor::selectCandidateInPage (guint i)
 {
     guint page_size = m_lookup_table.pageSize ();
     guint cursor_pos = m_lookup_table.cursorPos ();
@@ -414,7 +426,7 @@ LibPinyinPhoneticEditor::selectCandidateInPage (guint i)
 }
 
 gboolean
-LibPinyinPhoneticEditor::removeCharBefore (void)
+PhoneticEditor::removeCharBefore (void)
 {
     if (G_UNLIKELY (m_cursor == 0))
         return FALSE;
@@ -429,7 +441,7 @@ LibPinyinPhoneticEditor::removeCharBefore (void)
 }
 
 gboolean
-LibPinyinPhoneticEditor::removeCharAfter (void)
+PhoneticEditor::removeCharAfter (void)
 {
     if (G_UNLIKELY (m_cursor == m_text.length ()))
         return FALSE;
@@ -443,7 +455,7 @@ LibPinyinPhoneticEditor::removeCharAfter (void)
 }
 
 gboolean
-LibPinyinPhoneticEditor::moveCursorLeft (void)
+PhoneticEditor::moveCursorLeft (void)
 {
     if (G_UNLIKELY (m_cursor == 0))
         return FALSE;
@@ -454,7 +466,7 @@ LibPinyinPhoneticEditor::moveCursorLeft (void)
 }
 
 gboolean
-LibPinyinPhoneticEditor::moveCursorRight (void)
+PhoneticEditor::moveCursorRight (void)
 {
     if (G_UNLIKELY (m_cursor == m_text.length ()))
         return FALSE;
@@ -465,10 +477,10 @@ LibPinyinPhoneticEditor::moveCursorRight (void)
 }
 
 gboolean
-LibPinyinPhoneticEditor::moveCursorToBegin (void)
+PhoneticEditor::moveCursorToBegin (void)
 {
     if (G_UNLIKELY (m_cursor == 0))
-        return TRUE;
+        return FALSE;
 
     m_cursor = 0;
     update ();
@@ -476,7 +488,7 @@ LibPinyinPhoneticEditor::moveCursorToBegin (void)
 }
 
 gboolean
-LibPinyinPhoneticEditor::moveCursorToEnd (void)
+PhoneticEditor::moveCursorToEnd (void)
 {
     if (G_UNLIKELY (m_cursor == m_text.length ()))
         return FALSE;
@@ -490,7 +502,7 @@ LibPinyinPhoneticEditor::moveCursorToEnd (void)
 /* move cursor by word functions */
 
 guint
-LibPinyinPhoneticEditor::getCursorLeftByWord (void)
+PhoneticEditor::getCursorLeftByWord (void)
 {
     guint16 cursor = 0;
 
@@ -528,7 +540,7 @@ LibPinyinPhoneticEditor::getCursorLeftByWord (void)
 }
 
 guint
-LibPinyinPhoneticEditor::getCursorRightByWord (void)
+PhoneticEditor::getCursorRightByWord (void)
 {
     guint16 cursor = 0;
 
@@ -545,7 +557,7 @@ LibPinyinPhoneticEditor::getCursorRightByWord (void)
 }
 
 gboolean
-LibPinyinPhoneticEditor::removeWordBefore (void)
+PhoneticEditor::removeWordBefore (void)
 {
     if (G_UNLIKELY (m_cursor == 0))
         return FALSE;
@@ -559,7 +571,7 @@ LibPinyinPhoneticEditor::removeWordBefore (void)
 }
 
 gboolean
-LibPinyinPhoneticEditor::removeWordAfter (void)
+PhoneticEditor::removeWordAfter (void)
 {
     if (G_UNLIKELY (m_cursor == m_text.length ()))
         return FALSE;
@@ -572,7 +584,7 @@ LibPinyinPhoneticEditor::removeWordAfter (void)
 }
 
 gboolean
-LibPinyinPhoneticEditor::moveCursorLeftByWord (void)
+PhoneticEditor::moveCursorLeftByWord (void)
 {
     if (G_UNLIKELY (m_cursor == 0))
         return FALSE;
@@ -585,7 +597,7 @@ LibPinyinPhoneticEditor::moveCursorLeftByWord (void)
 }
 
 gboolean
-LibPinyinPhoneticEditor::moveCursorRightByWord (void)
+PhoneticEditor::moveCursorRightByWord (void)
 {
     if (G_UNLIKELY (m_cursor == m_text.length ()))
         return FALSE;

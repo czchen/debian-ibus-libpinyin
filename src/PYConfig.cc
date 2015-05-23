@@ -46,14 +46,15 @@ Config::initDefaultValues (void)
 {
     m_orientation = IBUS_ORIENTATION_HORIZONTAL;
     m_page_size = 5;
-    m_ctrl_switch = FALSE;
+    m_remember_every_input = FALSE;
+
     m_shift_select_candidate = FALSE;
     m_minus_equal_page = TRUE;
     m_comma_period_page = TRUE;
     m_auto_commit = FALSE;
 
     m_double_pinyin = FALSE;
-    m_double_pinyin_schema = 0;
+    m_double_pinyin_schema = DOUBLE_PINYIN_DEFAULT;
     m_double_pinyin_show_raw = FALSE;
 
     m_init_chinese = TRUE;
@@ -63,6 +64,11 @@ Config::initDefaultValues (void)
     m_special_phrases = TRUE;
 
     m_dictionaries = "2";
+
+    m_main_switch = "<Shift>";
+    m_letter_switch = "";
+    m_punct_switch = "<Control>period";
+    m_trad_switch = "<Control><Shift>f";
 }
 
 
@@ -120,30 +126,6 @@ Config::read (const gchar * name,
     ibus_config_set_value (get<IBusConfig> (), m_section.c_str (), name, value);
 
     return defval;
-}
-
-static inline bool
-normalizeGVariant (GVariant *value, bool defval)
-{
-    if (value == NULL || g_variant_classify (value) != G_VARIANT_CLASS_BOOLEAN)
-        return defval;
-    return g_variant_get_boolean (value);
-}
-
-static inline gint
-normalizeGVariant (GVariant *value, gint defval)
-{
-    if (value == NULL || g_variant_classify (value) != G_VARIANT_CLASS_INT32)
-        return defval;
-    return g_variant_get_int32 (value);
-}
-
-static inline std::string
-normalizeGVariant (GVariant *value, const std::string &defval)
-{
-    if (value == NULL || g_variant_classify (value) != G_VARIANT_CLASS_STRING)
-        return defval;
-    return g_variant_get_string (value, NULL);
 }
 
 gboolean

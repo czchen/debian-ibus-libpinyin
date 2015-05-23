@@ -41,51 +41,47 @@
 using namespace PY;
 
 /* constructor */
-LibPinyinPinyinEngine::LibPinyinPinyinEngine (IBusEngine *engine)
+PinyinEngine::PinyinEngine (IBusEngine *engine)
     : Engine (engine),
-      m_props (LibPinyinPinyinConfig::instance ()),
+      m_props (PinyinConfig::instance ()),
       m_prev_pressed_key (IBUS_VoidSymbol),
       m_input_mode (MODE_INIT),
-      m_fallback_editor (new FallbackEditor (m_props, LibPinyinPinyinConfig::instance ()))
+      m_fallback_editor (new FallbackEditor (m_props, PinyinConfig::instance ()))
 {
     gint i;
 
-#if IBUS_CHECK_VERSION (1, 5, 4)
-    m_input_purpose = IBUS_INPUT_PURPOSE_FREE_FORM;
-#endif
-
-    m_double_pinyin = LibPinyinPinyinConfig::instance ().doublePinyin ();
+    m_double_pinyin = PinyinConfig::instance ().doublePinyin ();
 
     if (m_double_pinyin)
         m_editors[MODE_INIT].reset
-            (new LibPinyinDoublePinyinEditor (m_props, LibPinyinPinyinConfig::instance ()));
+            (new DoublePinyinEditor (m_props, PinyinConfig::instance ()));
     else
         m_editors[MODE_INIT].reset
-            (new LibPinyinFullPinyinEditor (m_props, LibPinyinPinyinConfig::instance ()));
+            (new FullPinyinEditor (m_props, PinyinConfig::instance ()));
 
     m_editors[MODE_PUNCT].reset
-        (new PunctEditor (m_props, LibPinyinPinyinConfig::instance ()));
+        (new PunctEditor (m_props, PinyinConfig::instance ()));
     m_editors[MODE_RAW].reset
-        (new RawEditor (m_props, LibPinyinPinyinConfig::instance ()));
+        (new RawEditor (m_props, PinyinConfig::instance ()));
 
 #ifdef IBUS_BUILD_LUA_EXTENSION
-    m_editors[MODE_EXTENSION].reset (new ExtEditor (m_props, LibPinyinPinyinConfig::instance ()));
+    m_editors[MODE_EXTENSION].reset (new ExtEditor (m_props, PinyinConfig::instance ()));
 #else
-    m_editors[MODE_EXTENSION].reset (new Editor (m_props, LibPinyinPinyinConfig::instance ()));
+    m_editors[MODE_EXTENSION].reset (new Editor (m_props, PinyinConfig::instance ()));
 #endif
 #ifdef IBUS_BUILD_ENGLISH_INPUT_MODE
-    m_editors[MODE_ENGLISH].reset (new EnglishEditor (m_props, LibPinyinPinyinConfig::instance ()));
+    m_editors[MODE_ENGLISH].reset (new EnglishEditor (m_props, PinyinConfig::instance ()));
 #else
-    m_editors[MODE_ENGLISH].reset (new Editor (m_props, LibPinyinPinyinConfig::instance ()));
+    m_editors[MODE_ENGLISH].reset (new Editor (m_props, PinyinConfig::instance ()));
 #endif
 #ifdef IBUS_BUILD_STROKE_INPUT_MODE
-    m_editors[MODE_STROKE].reset (new StrokeEditor (m_props, LibPinyinPinyinConfig::instance ()));
+    m_editors[MODE_STROKE].reset (new StrokeEditor (m_props, PinyinConfig::instance ()));
 #else
-    m_editors[MODE_STROKE].reset (new Editor (m_props, LibPinyinPinyinConfig::instance ()));
+    m_editors[MODE_STROKE].reset (new Editor (m_props, PinyinConfig::instance ()));
 #endif
 
     m_props.signalUpdateProperty ().connect
-        (std::bind (&LibPinyinPinyinEngine::updateProperty, this, _1));
+        (std::bind (&PinyinEngine::updateProperty, this, _1));
 
     for (i = MODE_INIT; i < MODE_LAST; i++) {
         connectEditorSignals (m_editors[i]);
@@ -95,19 +91,21 @@ LibPinyinPinyinEngine::LibPinyinPinyinEngine (IBusEngine *engine)
 }
 
 /* destructor */
-LibPinyinPinyinEngine::~LibPinyinPinyinEngine (void)
+PinyinEngine::~PinyinEngine (void)
 {
 }
 
+/* keep synced with bopomofo engine. */
 gboolean
-LibPinyinPinyinEngine::processKeyEvent (guint keyval, guint keycode, guint modifiers)
+PinyinEngine::processAccelKeyEvent (guint keyval, guint keycode,
+                                    guint modifiers)
 {
-    gboolean retval = FALSE;
+    std::string accel;
+    pinyin_accelerator_name (keyval, modifiers, accel);
 
-#if IBUS_CHECK_VERSION (1, 5, 4)
-    if (IBUS_INPUT_PURPOSE_PASSWORD == m_input_purpose)
-        return retval;
-#endif
+    /* Safe Guard for empty key. */
+    if ("" == accel)
+        return FALSE;
 
     /* check Shift or Ctrl + Release hotkey,
      * and then ignore other Release key event */
@@ -116,13 +114,9 @@ LibPinyinPinyinEngine::processKeyEvent (guint keyval, guint keycode, guint modif
          * and no other key event between the press and release key event */
         gboolean triggered = FALSE;
 
-        if (m_prev_pressed_key == keyval){
-            if (LibPinyinPinyinConfig::instance ().ctrlSwitch ()) {
-                if (keyval == IBUS_Control_L || keyval == IBUS_Control_R)
-                    triggered = TRUE;
-            } else {
-                if (keyval == IBUS_Shift_L || keyval == IBUS_Shift_R)
-                    triggered = TRUE;
+        if (m_prev_pressed_key == keyval) {
+            if (PinyinConfig::instance ().mainSwitch () == accel) {
+                triggered = TRUE;
             }
         }
 
@@ -135,21 +129,52 @@ LibPinyinPinyinEngine::processKeyEvent (guint keyval, guint keycode, guint modif
 
         if (m_input_mode == MODE_INIT &&
             m_editors[MODE_INIT]->text ().empty ()) {
-            /* If it is in init mode, and  no any previous input text,
+            /* If it is in init mode, and no any previous input text,
              * we will let client applications to handle release key event */
             return FALSE;
-        }
-        else {
+        } else {
             return TRUE;
         }
     }
 
-    /* Toggle simp/trad Chinese Mode when hotkey Ctrl + Shift + F pressed */
-    if (keyval == IBUS_F && scmshm_test (modifiers, (IBUS_SHIFT_MASK | IBUS_CONTROL_MASK))) {
-        m_props.toggleModeSimp ();
-        m_prev_pressed_key = IBUS_F;
+    /* Toggle full/half Letter Mode */
+    if (PinyinConfig::instance (). letterSwitch () == accel) {
+        m_props.toggleModeFull ();
+        m_prev_pressed_key = keyval;
         return TRUE;
     }
+
+    /* Toggle full/half Punct Mode */
+    if (PinyinConfig::instance (). punctSwitch () == accel) {
+        m_props.toggleModeFullPunct ();
+        m_prev_pressed_key = keyval;
+        return TRUE;
+    }
+
+    /* Toggle simp/trad Chinese Mode */
+    if (PinyinConfig::instance ().tradSwitch () == accel) {
+        m_props.toggleModeSimp ();
+        m_prev_pressed_key = keyval;
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+gboolean
+PinyinEngine::processKeyEvent (guint keyval, guint keycode, guint modifiers)
+{
+    gboolean retval = FALSE;
+
+    if (contentIsPassword ())
+        return retval;
+
+    if (processAccelKeyEvent (keyval, keycode, modifiers))
+        return TRUE;
+
+    /* assume release key event is handled in processAccelKeyEvent. */
+    if (modifiers & IBUS_RELEASE_MASK)
+        return FALSE;
 
     if (m_props.modeChinese ()) {
         if (m_input_mode == MODE_INIT &&
@@ -163,7 +188,7 @@ LibPinyinPinyinEngine::processKeyEvent (guint keyval, guint keycode, guint modif
 #ifdef IBUS_BUILD_LUA_EXTENSION
                 case IBUS_i:
                     // do not enable lua extension when use double pinyin.
-                    if (LibPinyinPinyinConfig::instance ().doublePinyin ())
+                    if (PinyinConfig::instance ().doublePinyin ())
                         break;
                     m_input_mode = MODE_EXTENSION;
                     break;
@@ -171,7 +196,7 @@ LibPinyinPinyinEngine::processKeyEvent (guint keyval, guint keycode, guint modif
 #ifdef IBUS_BUILD_ENGLISH_INPUT_MODE
                 case IBUS_v:
                     // do not enable english mode when use double pinyin.
-                    if (LibPinyinPinyinConfig::instance ().doublePinyin ())
+                    if (PinyinConfig::instance ().doublePinyin ())
                         break;
                     m_input_mode = MODE_ENGLISH;
                     break;
@@ -179,7 +204,7 @@ LibPinyinPinyinEngine::processKeyEvent (guint keyval, guint keycode, guint modif
 #ifdef IBUS_BUILD_STROKE_INPUT_MODE
                 case IBUS_u:
                     // do not enable stroke mode when use double pinyin.
-                    if (LibPinyinPinyinConfig::instance ().doublePinyin ())
+                    if (PinyinConfig::instance ().doublePinyin ())
                         break;
                     m_input_mode = MODE_STROKE;
                     break;
@@ -206,20 +231,20 @@ LibPinyinPinyinEngine::processKeyEvent (guint keyval, guint keycode, guint modif
 }
 
 void
-LibPinyinPinyinEngine::focusIn (void)
+PinyinEngine::focusIn (void)
 {
     /* TODO: check memory leak here,
      *       or switch full/double pinyin when pinyin config is changed.*/
-    if (LibPinyinPinyinConfig::instance ().doublePinyin ()) {
+    if (PinyinConfig::instance ().doublePinyin ()) {
         if (!m_double_pinyin) {
-            m_editors[MODE_INIT].reset (new LibPinyinDoublePinyinEditor (m_props, LibPinyinPinyinConfig::instance ()));
+            m_editors[MODE_INIT].reset (new DoublePinyinEditor (m_props, PinyinConfig::instance ()));
             connectEditorSignals (m_editors[MODE_INIT]);
         }
         m_double_pinyin = TRUE;
     }
     else {
         if (m_double_pinyin) {
-            m_editors[MODE_INIT].reset (new LibPinyinFullPinyinEditor (m_props, LibPinyinPinyinConfig::instance ()));
+            m_editors[MODE_INIT].reset (new FullPinyinEditor (m_props, PinyinConfig::instance ()));
             connectEditorSignals (m_editors[MODE_INIT]);
         }
         m_double_pinyin = FALSE;
@@ -229,26 +254,15 @@ LibPinyinPinyinEngine::focusIn (void)
 }
 
 void
-LibPinyinPinyinEngine::focusOut (void)
+PinyinEngine::focusOut (void)
 {
-
-#if IBUS_CHECK_VERSION (1, 5, 4)
-    m_input_purpose = IBUS_INPUT_PURPOSE_FREE_FORM;
-#endif
+    Engine::focusOut ();
 
     reset ();
 }
 
-#if IBUS_CHECK_VERSION(1, 5, 4)
 void
-LibPinyinPinyinEngine::setContentType (guint purpose, guint hints)
-{
-    m_input_purpose = (IBusInputPurpose) purpose;
-}
-#endif
-
-void
-LibPinyinPinyinEngine::reset (void)
+PinyinEngine::reset (void)
 {
     m_prev_pressed_key = IBUS_VoidSymbol;
     m_input_mode = MODE_INIT;
@@ -259,49 +273,49 @@ LibPinyinPinyinEngine::reset (void)
 }
 
 void
-LibPinyinPinyinEngine::enable (void)
+PinyinEngine::enable (void)
 {
     m_props.reset ();
 }
 
 void
-LibPinyinPinyinEngine::disable (void)
+PinyinEngine::disable (void)
 {
 }
 
 void
-LibPinyinPinyinEngine::pageUp (void)
+PinyinEngine::pageUp (void)
 {
     m_editors[m_input_mode]->pageUp ();
 }
 
 void
-LibPinyinPinyinEngine::pageDown (void)
+PinyinEngine::pageDown (void)
 {
     m_editors[m_input_mode]->pageDown ();
 }
 
 void
-LibPinyinPinyinEngine::cursorUp (void)
+PinyinEngine::cursorUp (void)
 {
     m_editors[m_input_mode]->cursorUp ();
 }
 
 void
-LibPinyinPinyinEngine::cursorDown (void)
+PinyinEngine::cursorDown (void)
 {
     m_editors[m_input_mode]->cursorDown ();
 }
 
 inline void
-LibPinyinPinyinEngine::showSetupDialog (void)
+PinyinEngine::showSetupDialog (void)
 {
     g_spawn_command_line_async
         (LIBEXECDIR"/ibus-setup-libpinyin pinyin", NULL);
 }
 
 gboolean
-LibPinyinPinyinEngine::propertyActivate (const char *prop_name, guint prop_state)
+PinyinEngine::propertyActivate (const char *prop_name, guint prop_state)
 {
     const static String setup ("setup");
     if (m_props.propertyActivate (prop_name, prop_state)) {
@@ -315,13 +329,13 @@ LibPinyinPinyinEngine::propertyActivate (const char *prop_name, guint prop_state
 }
 
 void
-LibPinyinPinyinEngine::candidateClicked (guint index, guint button, guint state)
+PinyinEngine::candidateClicked (guint index, guint button, guint state)
 {
     m_editors[m_input_mode]->candidateClicked (index, button, state);
 }
 
 void
-LibPinyinPinyinEngine::commitText (Text & text)
+PinyinEngine::commitText (Text & text)
 {
     Engine::commitText (text);
     if (m_input_mode != MODE_INIT)
@@ -336,31 +350,31 @@ LibPinyinPinyinEngine::commitText (Text & text)
 }
 
 void
-LibPinyinPinyinEngine::connectEditorSignals (EditorPtr editor)
+PinyinEngine::connectEditorSignals (EditorPtr editor)
 {
     editor->signalCommitText ().connect (
-        std::bind (&LibPinyinPinyinEngine::commitText, this, _1));
+        std::bind (&PinyinEngine::commitText, this, _1));
 
     editor->signalUpdatePreeditText ().connect (
-        std::bind (&LibPinyinPinyinEngine::updatePreeditText, this, _1, _2, _3));
+        std::bind (&PinyinEngine::updatePreeditText, this, _1, _2, _3));
     editor->signalShowPreeditText ().connect (
-        std::bind (&LibPinyinPinyinEngine::showPreeditText, this));
+        std::bind (&PinyinEngine::showPreeditText, this));
     editor->signalHidePreeditText ().connect (
-        std::bind (&LibPinyinPinyinEngine::hidePreeditText, this));
+        std::bind (&PinyinEngine::hidePreeditText, this));
 
     editor->signalUpdateAuxiliaryText ().connect (
-        std::bind (&LibPinyinPinyinEngine::updateAuxiliaryText, this, _1, _2));
+        std::bind (&PinyinEngine::updateAuxiliaryText, this, _1, _2));
     editor->signalShowAuxiliaryText ().connect (
-        std::bind (&LibPinyinPinyinEngine::showAuxiliaryText, this));
+        std::bind (&PinyinEngine::showAuxiliaryText, this));
     editor->signalHideAuxiliaryText ().connect (
-        std::bind (&LibPinyinPinyinEngine::hideAuxiliaryText, this));
+        std::bind (&PinyinEngine::hideAuxiliaryText, this));
 
     editor->signalUpdateLookupTable ().connect (
-        std::bind (&LibPinyinPinyinEngine::updateLookupTable, this, _1, _2));
+        std::bind (&PinyinEngine::updateLookupTable, this, _1, _2));
     editor->signalUpdateLookupTableFast ().connect (
-        std::bind (&LibPinyinPinyinEngine::updateLookupTableFast, this, _1, _2));
+        std::bind (&PinyinEngine::updateLookupTableFast, this, _1, _2));
     editor->signalShowLookupTable ().connect (
-        std::bind (&LibPinyinPinyinEngine::showLookupTable, this));
+        std::bind (&PinyinEngine::showLookupTable, this));
     editor->signalHideLookupTable ().connect (
-        std::bind (&LibPinyinPinyinEngine::hideLookupTable, this));
+        std::bind (&PinyinEngine::hideLookupTable, this));
 }
