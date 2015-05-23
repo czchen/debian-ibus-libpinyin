@@ -21,6 +21,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+from __future__ import print_function
+
 import gettext
 
 import locale
@@ -33,9 +35,11 @@ from gi.repository import IBus
 
 import config
 from dicttreeview import DictionaryTreeView
+from shortcuteditor import ShortcutEditor
 
 locale.setlocale(locale.LC_ALL, "")
 localedir = os.getenv("IBUS_LOCALEDIR")
+pkgdatadir = os.getenv("IBUS_PKGDATADIR") or "."
 gettext.install('ibus-libpinyin', localedir)
 
 class PreferencesDialog:
@@ -56,6 +60,7 @@ class PreferencesDialog:
             self.__init_fuzzy()
             self.__init_dictionary()
             self.__init_user_data()
+            self.__init_shortcut()
             self.__init_about()
         elif engine == "bopomofo":
             self.__config_namespace = "engine/Bopomofo"
@@ -65,6 +70,7 @@ class PreferencesDialog:
             self.__init_fuzzy()
             self.__init_dictionary()
             #self.__init_user_data()
+            self.__init_shortcut()
             self.__init_about()
             self.__convert_fuzzy_pinyin_to_bopomofo()
 
@@ -82,6 +88,7 @@ class PreferencesDialog:
         self.__page_fuzzy = self.__builder.get_object("pageFuzzy")
         self.__page_dictionary = self.__builder.get_object("pageDictionary")
         self.__page_user_data = self.__builder.get_object("pageUserData")
+        self.__page_shortcut = self.__builder.get_object("pageShortcut")
         self.__page_about = self.__builder.get_object("pageAbout")
 
         self.__page_general.hide()
@@ -110,10 +117,8 @@ class PreferencesDialog:
         self.__lookup_table_page_size = self.__builder.get_object("LookupTablePageSize")
         self.__lookup_table_orientation = self.__builder.get_object("LookupTableOrientation")
 
-        self.__shift_switch = self.__builder.get_object("ShiftSwitch")
-        self.__ctrl_switch = self.__builder.get_object("CtrlSwitch")
-
         self.__dynamic_adjust = self.__builder.get_object("DynamicAdjust")
+        self.__remember_every_input = self.__builder.get_object("RememberEveryInput")
 
         # read values
         self.__init_chinese.set_active(self.__get_value("InitChinese", True))
@@ -124,16 +129,15 @@ class PreferencesDialog:
         self.__lookup_table_orientation.set_active(self.__get_value("LookupTableOrientation", 0))
         self.__lookup_table_page_size.set_value(self.__get_value("LookupTablePageSize", 5))
 
-        self.__shift_switch.set_active(not self.__get_value("CtrlSwitch", False))
-
         self.__dynamic_adjust.set_active(self.__get_value("DynamicAdjust", True))
+        self.__remember_every_input.set_active(self.__get_value("RememberEveryInput", False))
         # connect signals
         self.__init_chinese.connect("toggled", self.__toggled_cb, "InitChinese")
         self.__init_full.connect("toggled", self.__toggled_cb, "InitFull")
         self.__init_full_punct.connect("toggled", self.__toggled_cb, "InitFullPunct")
         self.__init_simp.connect("toggled", self.__toggled_cb, "InitSimplifiedChinese")
-        self.__ctrl_switch.connect("toggled", self.__toggled_cb, "CtrlSwitch")
         self.__dynamic_adjust.connect("toggled", self.__toggled_cb, "DynamicAdjust")
+        self.__remember_every_input.connect("toggled", self.__toggled_cb, "RememberEveryInput")
 
         def __lookup_table_page_size_changed_cb(adjustment):
             self.__set_value("LookupTablePageSize", int(adjustment.get_value()))
@@ -266,8 +270,8 @@ class PreferencesDialog:
 
         def __correct_pinyin_toggled_cb(widget):
             val = widget.get_active()
-            map(lambda w: self.__builder.get_object(w[0]).set_sensitive(val),
-                self.__correct_pinyin_widgets)
+            for w in self.__correct_pinyin_widgets:
+                self.__builder.get_object(w[0]).set_sensitive(val)
         self.__correct_pinyin.connect("toggled", __correct_pinyin_toggled_cb)
 
         # init value
@@ -302,8 +306,8 @@ class PreferencesDialog:
 
         def __fuzzy_pinyin_toggled_cb(widget):
             val = widget.get_active()
-            map(lambda w: self.__builder.get_object(w[0]).set_sensitive(val),
-                self.__fuzzy_pinyin_widgets)
+            for w in self.__fuzzy_pinyin_widgets:
+                self.__builder.get_object(w[0]).set_sensitive(val)
         self.__fuzzy_pinyin.connect("toggled", __fuzzy_pinyin_toggled_cb)
 
         # init value
@@ -355,7 +359,7 @@ class PreferencesDialog:
         self.__page_user_data.show()
 
         self.__frame_lua_script = self.__builder.get_object("frameLuaScript")
-        path = os.path.join(config.get_data_dir(), 'user.lua')
+        path = os.path.join(pkgdatadir, 'user.lua')
         if not os.access(path, os.R_OK):
             self.__frame_lua_script.hide()
 
@@ -364,6 +368,9 @@ class PreferencesDialog:
 
         self.__import_dictionary = self.__builder.get_object("ImportDictionary")
         self.__import_dictionary.connect("clicked", self.__import_dictionary_cb)
+
+        self.__export_dictionary = self.__builder.get_object("ExportDictionary")
+        self.__export_dictionary.connect("clicked", self.__export_dictionary_cb)
 
         self.__clear_user_data = self.__builder.get_object("ClearUserData")
         self.__clear_user_data.connect("clicked", self.__clear_user_data_cb, "user")
@@ -376,13 +383,13 @@ class PreferencesDialog:
         os.path.exists(path) or os.makedirs(path)
         path = os.path.join(path, "user.lua")
         if not os.path.exists(path):
-            src = os.path.join(config.get_data_dir(), "user.lua")
+            src = os.path.join(pkgdatadir, "user.lua")
             shutil.copyfile(src, path)
         os.system("xdg-open %s" % path)
 
     def __import_dictionary_cb(self, widget):
         dialog = Gtk.FileChooserDialog \
-            (_("Please choose a file"), None,
+            (_("Please choose a file"), self.__dialog,
              Gtk.FileChooserAction.OPEN,
              (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
               Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
@@ -398,8 +405,46 @@ class PreferencesDialog:
 
         dialog.destroy()
 
+    def __export_dictionary_cb(self, widget):
+        dialog = Gtk.FileChooserDialog \
+                 (_("Please save a file"), self.__dialog,
+                  Gtk.FileChooserAction.SAVE,
+                  (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                   Gtk.STOCK_SAVE, Gtk.ResponseType.OK))
+        dialog.set_do_overwrite_confirmation(True)
+
+        filter_text = Gtk.FileFilter()
+        filter_text.set_name("Text files")
+        filter_text.add_mime_type("text/plain")
+        dialog.add_filter(filter_text)
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            self.__set_value("ExportDictionary", dialog.get_filename())
+
+        dialog.destroy()
+
     def __clear_user_data_cb(self, widget, name):
         self.__set_value("ClearUserData", name)
+
+    def __init_shortcut(self):
+        # page Shortcut
+        self.__page_shortcut.show()
+
+        # shortcut tree view
+        self.__shortcut_editor = self.__builder.get_object("ShortcutsEditor")
+        # work around for fedora 21
+        self.__shortcut_editor.set_orientation(Gtk.Orientation.VERTICAL)
+        self.__shortcut_editor.show()
+
+        # connect "shortcut-changed" signal
+        self.__shortcut_editor.connect("shortcut-changed", self.__shortcut_changed_cb)
+
+        # set shortcuts
+        self.__shortcut_editor.update_shortcuts(self.__values)
+
+    def __shortcut_changed_cb(self, editor, key, value):
+        self.__set_value(key, value)
 
     def __init_about(self):
         # page About
@@ -431,7 +476,7 @@ class PreferencesDialog:
         elif isinstance(val, str):
             var = GLib.Variant.new_string(val)
         else:
-            print >> sys.stderr, "val(%s) is not in support type." % repr(val)
+            print("val(%s) is not in support type." % repr(val), file=sys.stderr)
             return
 
         self.__values[name] = val

@@ -22,6 +22,8 @@ setup_libpinyin_PYTHON = \
 	main2.py \
 	config.py \
 	dicttreeview.py \
+	shortcuteditor.py \
+	keyboardshortcut.py \
 	ibus-libpinyin-preferences.ui \
 	$(NULL)
 
@@ -44,11 +46,13 @@ EXTRA_DIST = \
 test-libpinyin:
 	$(ENV) DBUS_DEBUG=true \
 		   IBUS_LOCALEDIR=@localedir@ \
+		   IBUS_PKGDATADIR=$(pkgdatadir) \
 		   PYTHONPATH=$(abs_top_srcdir):$(pyexecdir) \
 		   $(PYTHON) $(srcdir)/main2.py pinyin
 
 test-libbopomofo:
 	$(ENV) DBUS_DEBUG=true \
 		   IBUS_LOCALEDIR=@localedir@ \
+		   IBUS_PKGDATADIR=$(pkgdatadir) \
 		   PYTHONPATH=$(abs_top_srcdir):$(pyexecdir) \
 		   $(PYTHON) $(srcdir)/main2.py bopomofo

@@ -19,8 +19,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <cstring>
 #include "PYEngine.h"
+#include <cstring>
+#include <gdk/gdk.h>
 #include "PYPPinyinEngine.h"
 #include "PYPBopomofoEngine.h"
 
@@ -166,18 +167,16 @@ ibus_pinyin_engine_constructor (GType                  type,
     name = ibus_engine_get_name ((IBusEngine *) engine);
 
     if (name) {
-#ifdef IBUS_BUILD_LIBPINYIN
         if (std::strcmp (name, "libpinyin") == 0 ||
             std::strcmp (name, "libpinyin-debug") == 0) {
-            engine->engine = new LibPinyinPinyinEngine (IBUS_ENGINE (engine));
+            engine->engine = new PinyinEngine (IBUS_ENGINE (engine));
         }
         if (std::strcmp (name, "libbopomofo") == 0 ||
             std::strcmp (name, "libbopomofo-debug") == 0 ) {
-            engine->engine = new LibPinyinBopomofoEngine (IBUS_ENGINE (engine));
+            engine->engine = new BopomofoEngine (IBUS_ENGINE (engine));
         }
-#endif
     } else {
-        engine->engine = new LibPinyinPinyinEngine (IBUS_ENGINE (engine));
+        engine->engine = new PinyinEngine (IBUS_ENGINE (engine));
     }
     return (GObject *) engine;
 }
@@ -248,8 +247,103 @@ FUNCTION(cursor_up,   cursorUp)
 FUNCTION(cursor_down, cursorDown)
 #undef FUNCTION
 
+Engine::Engine (IBusEngine *engine) : m_engine (engine)
+{
+#if IBUS_CHECK_VERSION (1, 5, 4)
+    m_input_purpose = IBUS_INPUT_PURPOSE_FREE_FORM;
+#endif
+}
+
+gboolean
+Engine::contentIsPassword()
+{
+#if IBUS_CHECK_VERSION (1, 5, 4)
+   return IBUS_INPUT_PURPOSE_PASSWORD == m_input_purpose;
+#else
+   return FALSE;
+#endif
+}
+
+void
+Engine::focusOut (void)
+{
+#if IBUS_CHECK_VERSION (1, 5, 4)
+    m_input_purpose = IBUS_INPUT_PURPOSE_FREE_FORM;
+#endif
+}
+
+#if IBUS_CHECK_VERSION(1, 5, 4)
+void
+Engine::setContentType (guint purpose, guint hints)
+{
+    m_input_purpose = (IBusInputPurpose) purpose;
+}
+#endif
+
 Engine::~Engine (void)
 {
+}
+
+gboolean
+pinyin_accelerator_name(guint keyval, guint modifiers, std::string & name) {
+    name = "";
+
+    /* Convert some key press to modifiers. */
+    switch (keyval) {
+    case IBUS_KEY_Control_L:
+    case IBUS_KEY_Control_R:
+        modifiers |= IBUS_CONTROL_MASK;
+        keyval = 0;
+        break;
+    case IBUS_KEY_Alt_L:
+    case IBUS_KEY_Alt_R:
+        modifiers |= IBUS_MOD1_MASK;
+        keyval = 0;
+        break;
+    case IBUS_KEY_Shift_L:
+    case IBUS_KEY_Shift_R:
+        modifiers |= IBUS_SHIFT_MASK;
+        keyval = 0;
+        break;
+    case IBUS_KEY_Meta_L:
+    case IBUS_KEY_Meta_R:
+        modifiers |= IBUS_META_MASK;
+        keyval = 0;
+        break;
+    case IBUS_KEY_Super_L:
+    case IBUS_KEY_Super_R:
+        modifiers |= IBUS_SUPER_MASK;
+        keyval = 0;
+        break;
+    case IBUS_KEY_Hyper_L:
+    case IBUS_KEY_Hyper_R:
+        modifiers |= IBUS_HYPER_MASK;
+        keyval = 0;
+        break;
+    }
+
+    /* Convert modifiers. */
+    if (modifiers & IBUS_CONTROL_MASK)
+        name += "<Control>";
+    if (modifiers & IBUS_MOD1_MASK)
+        name += "<Alt>";
+    if (modifiers & IBUS_SHIFT_MASK)
+        name += "<Shift>";
+    if (modifiers & IBUS_META_MASK)
+        name += "<Meta>";
+    if (modifiers & IBUS_SUPER_MASK)
+        name += "<Super>";
+    if (modifiers & IBUS_HYPER_MASK)
+        name += "<Hyper>";
+
+
+    /* Convert keyval. */
+    if (keyval) {
+        const gchar * symbol = gdk_keyval_name (gdk_keyval_to_lower (keyval));
+        name += symbol;
+    }
+
+    return TRUE;
 }
 
 };
